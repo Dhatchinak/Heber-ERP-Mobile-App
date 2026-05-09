@@ -2,7 +2,9 @@ import 'package:bhc_erp/Student/screens/main_page.dart';
 import 'package:bhc_erp/Student/theme_provider.dart';
 import 'package:bhc_erp/Staff/theme_provider.dart';
 import 'package:bhc_erp/core/auth/user_type.dart';
+import 'package:bhc_erp/splash_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/auth/auth_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -11,6 +13,11 @@ import 'Staff/screens/staff_dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
   final authProvider = AuthProvider();
   await authProvider.init();
   runApp(MyApp(authProvider: authProvider));
@@ -22,48 +29,56 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // MultiProvider is the ROOT — above MaterialApp.
-    // This means ALL routes pushed by the navigator inherit these providers.
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => AppThemeProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),      // Student screens
-        ChangeNotifierProvider(create: (_) => StaffThemeProvider()), // Staff screens
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => StaffThemeProvider()),
       ],
-      child: _AppRoot(),
+      child: const _AppRoot(),
     );
   }
 }
 
 class _AppRoot extends StatelessWidget {
+  const _AppRoot();
+
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<AppThemeProvider>();
-    final auth = context.watch<AuthProvider>();
+    final auth  = context.watch<AuthProvider>();
 
     return MaterialApp(
-      title: 'BHC Unified ERP',
+      title: 'BHC ERP',
       debugShowCheckedModeBanner: false,
       theme: theme.themeData,
-      // builder wraps every route in the navigator with the providers above,
-      // ensuring pushed routes also see ThemeProvider.
       builder: (context, child) => child!,
-      home: _resolveHome(auth),
+      // Splash is always the entry — it decides where to go
+      home: SplashScreen(nextScreen: _resolveHome(auth)),
       routes: {
-        '/login': (_) => const UnifiedLoginScreen(),
+        '/login':           (_) => const UnifiedLoginScreen(),
         '/staff-dashboard': (_) => const StaffDashboard(),
+      },
+      // Smooth default page transition for named routes
+      onGenerateRoute: (settings) {
+        Widget? page;
+        if (settings.name == '/login') page = const UnifiedLoginScreen();
+        if (settings.name == '/staff-dashboard') page = const StaffDashboard();
+        if (page == null) return null;
+        return _fadeSlideRoute(page);
       },
     );
   }
 
   Widget _resolveHome(AuthProvider auth) {
     if (auth.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: Color(0xFF05060F),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF7B8CFF))),
+      );
     }
-    if (!auth.isAuthenticated) {
-      return const UnifiedLoginScreen();
-    }
+    if (!auth.isAuthenticated) return const UnifiedLoginScreen();
     if (auth.userType == UserType.student) {
       return MainPage(
         rollNo: auth.studentRollNo ?? '',
@@ -72,4 +87,24 @@ class _AppRoot extends StatelessWidget {
     }
     return const StaffDashboard();
   }
+}
+
+/// Reusable smooth fade+slide page route
+PageRouteBuilder _fadeSlideRoute(Widget page) {
+  return PageRouteBuilder(
+    pageBuilder: (_, __, ___) => page,
+    transitionDuration: const Duration(milliseconds: 400),
+    reverseTransitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (_, anim, __, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+        child: SlideTransition(
+          position: Tween<Offset>(
+                  begin: const Offset(0, 0.03), end: Offset.zero)
+              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+          child: child,
+        ),
+      );
+    },
+  );
 }

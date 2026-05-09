@@ -183,21 +183,15 @@ class _EnhancedPublicationsScreenState extends State<EnhancedPublicationsScreen>
 
   Future<void> _loadAllData() async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _loadingProgress = 0;
-    });
+    setState(() { _isLoading = true; _loadingProgress = 0; });
     try {
-      await _loadPublications();
-      if (mounted) setState(() => _loadingProgress = 0.6);
-      await _loadAllStaff();
+      // Run both in parallel — eliminates sequential 3–5s wait
+      await Future.wait([_loadPublications(), _loadAllStaff()]);
       if (!mounted) return;
       setState(() => _loadingProgress = 1.0);
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 150));
       if (!mounted) return;
-      final pubs =
-          (_publicationsData[_pubTypes[_selectedTypeIndex].apiKey] as List?) ??
-              [];
+      final pubs = (_publicationsData[_pubTypes[_selectedTypeIndex].apiKey] as List?) ?? [];
       _buildCardAnimations(pubs.length);
       _fabCtrl.forward();
       setState(() => _isLoading = false);

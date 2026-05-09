@@ -1385,7 +1385,7 @@ class _ProfessionalMarkAttendanceScreenState
         final request = http.Request('GET', Uri.parse(url));
         request.headers.addAll(_headers);
         final streamedResponse = await client.send(request).timeout(
-          Duration(seconds: 10),
+          Duration(seconds: 8),
           onTimeout: () {
             client.close();
             throw TimeoutException('Request timed out');
@@ -1408,14 +1408,15 @@ class _ProfessionalMarkAttendanceScreenState
   }
 
   Future<String?> _calculateBatch() async {
-    final yearNum =
-        int.parse(widget.selectedClass['year'].toString());
+    final yearNum = int.parse(widget.selectedClass['year'].toString());
+    final currentYear = DateTime.now().year;
+    // Batch year = current academic year minus (year - 1)
+    // e.g. year=1 in 2025 → batch 2025-2027(PG) or 2025-2028(UG)
+    final batchStart = currentYear - (yearNum - 1);
     if (widget.selectedClass['program_id'].toString().startsWith('PG-')) {
-      const startYear = 2025;
-      return '${startYear + yearNum - 1}-${startYear + yearNum + 1}';
+      return '$batchStart-${batchStart + 2}';
     } else {
-      const startYear = 2025;
-      return '$startYear-${startYear + 3}';
+      return '$batchStart-${batchStart + 3}';
     }
   }
 
@@ -1661,7 +1662,7 @@ class _ProfessionalMarkAttendanceScreenState
             },
             body: json.encode(body),
           )
-          .timeout(Duration(seconds: 35));
+          .timeout(Duration(seconds: 12));
 
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
@@ -1701,7 +1702,7 @@ class _ProfessionalMarkAttendanceScreenState
             },
             body: json.encode(body),
           )
-          .timeout(Duration(seconds: 35));
+          .timeout(Duration(seconds: 12));
 
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {

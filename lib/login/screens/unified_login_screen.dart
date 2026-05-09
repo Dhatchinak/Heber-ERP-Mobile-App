@@ -566,8 +566,18 @@ class _StudentLoginTabState extends State<_StudentLoginTab> {
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-                builder: (_) => MainPage(rollNo: roll, studentName: name)),
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => MainPage(rollNo: roll, studentName: name),
+              transitionDuration: const Duration(milliseconds: 400),
+              transitionsBuilder: (_, anim, __, child) => FadeTransition(
+                opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                child: SlideTransition(
+                  position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+                      .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+                  child: child,
+                ),
+              ),
+            ),
           );
         } else {
           _err('Date of Birth does not match our records.');

@@ -157,7 +157,7 @@ class LeaveService {
       print('🎯 Fetching student data for roll no: $rollNo');
       final response = await http
           .get(Uri.parse('$baseUrl1/students/$rollNo'), headers: headers)
-          .timeout(Duration(seconds: 30));
+          .timeout(Duration(seconds: 12));
       print('📡 Student API Response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
@@ -183,7 +183,7 @@ class LeaveService {
             headers: headers,
             body: json.encode(requestBody),
           )
-          .timeout(Duration(seconds: 30));
+          .timeout(Duration(seconds: 12));
       if (response.body.isEmpty) {
         return {'success': false, 'message': 'Empty response from server'};
       }
@@ -215,7 +215,7 @@ class LeaveService {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/rollno/$rollNo'), headers: headers)
-          .timeout(Duration(seconds: 30));
+          .timeout(Duration(seconds: 12));
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         if (result['success'] == true && result['data'] != null) {
@@ -1002,7 +1002,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _statItem(c, 'Total', total, c.violet),
-                    _statItem(c, 'Pending', pending, Colors.orange),
+                    _statItem(c, 'Pending', pending, c.amber),
                     _statItem(c, 'Approved', approved, c.cyan),
                     _statItem(c, 'Rejected', rejected, c.pink),
                   ],
@@ -1072,7 +1072,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
                           itemBuilder: (context, index) {
                             final app = _applications[index];
                             final status = _getStatusText(app.approvals);
-                            final statusColor = status == 'Approved' ? c.green : status == 'Rejected' ? c.pink : Colors.orange;
+                            final statusColor = status == 'Approved' ? c.green : status == 'Rejected' ? c.pink : c.amber;
                             return Container(
                               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(

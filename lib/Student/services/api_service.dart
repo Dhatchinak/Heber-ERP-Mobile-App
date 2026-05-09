@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:bhc_erp/Staff/common/academic_calendar.dart';
+import 'package:bhc_erp/Student/screens/academic_calendar.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {

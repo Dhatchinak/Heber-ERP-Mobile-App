@@ -180,28 +180,24 @@ Future<Map<String, dynamic>> _fetchDashboardData() async {
     return _fallbackData(userData);
   }
 
-  // Run these in parallel
+  // Run ALL fetches in parallel — no sequential awaits
   final results = await Future.wait([
     _fetchStaffProfileCached(),
     _fetchTodayBioAttendance(),
     _fetchRecentBioActivity(),
+    _getMenteeCount(userData?['staff_id'], userData?['department_code']),
   ], eagerError: false).timeout(const Duration(seconds: 10));
 
   final profile = results[0] as Map<String, dynamic>?;
   final bioAtt = results[1] as Map<String, dynamic>;
   final activities = results[2] as List<Map<String, dynamic>>;
+  final menteeCount = results[3] as int;
 
   final classes = (profile?['class_attend'] as List?) ?? [];
   final todayClasses = _filterTodayClasses(classes);
   final totalCourses = _countUniqueCourses(classes);
   final publications = profile?['publications'] ?? {};
   final pubCount = _countPublications(publications);
-
-  // Fetch mentee count - WAIT for it
-  final menteeCount = await _getMenteeCount(
-    userData?['staff_id'],
-    userData?['department_code'],
-  );
 
   if (mounted) {
     _welcomeCtrl.forward(from: 0);
@@ -298,16 +294,27 @@ Future<Map<String, dynamic>?> _fetchStaffProfileCached() async {
           ? int.tryParse(auth.userData!['bio_id'].toString())
           : null;
 
-      if (bioId == null) {
-        final res = await http.get(
-          Uri.parse('$_kBaseApiUrl/staff/$_currentStaffId'),
-          headers: {'Referer': _kRefererUrl, 'Accept': 'application/json'},
-        ).timeout(const Duration(seconds: 8));
-        if (res.statusCode == 200) {
-          final data = json.decode(res.body);
-          bioId = data['bio_id'] != null
-              ? int.tryParse(data['bio_id'].toString())
+      if (bioId == null && _currentStaffId != null) {
+        // Use cached profile instead of an extra HTTP call
+        final cached = _profileCache[_currentStaffId];
+        if (cached != null) {
+          bioId = cached['bio_id'] != null
+              ? int.tryParse(cached['bio_id'].toString())
               : null;
+        }
+        // Only hit network if truly not in cache
+        if (bioId == null) {
+          final res = await http.get(
+            Uri.parse('$_kBaseApiUrl/staff/$_currentStaffId'),
+            headers: {'Referer': _kRefererUrl, 'Accept': 'application/json'},
+          ).timeout(const Duration(seconds: 5));
+          if (res.statusCode == 200) {
+            final data = json.decode(res.body);
+            _profileCache[_currentStaffId!] = data;
+            bioId = data['bio_id'] != null
+                ? int.tryParse(data['bio_id'].toString())
+                : null;
+          }
         }
       }
 
