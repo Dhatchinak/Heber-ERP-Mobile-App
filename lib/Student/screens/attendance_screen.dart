@@ -111,7 +111,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       final response = await http.get(
         Uri.parse('https://apierp.bhc.edu.in/api/students/attendance/${widget.rollNo}'),
         headers: {'Referer': 'http://117.232.64.75', 'Accept': 'application/json', 'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) _parseAttendance(jsonDecode(response.body) as Map<String, dynamic>);
     } catch (e) { debugPrint('Fetch error: $e'); }
     finally { if (mounted) setState(() => _isLoading = false); _staggerCtrl.forward(); _progressAnimCtrl.forward(from: 0); }
@@ -467,7 +467,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     child: Container(
                       height: 10,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: meetsReq ? [c.green, const Color(0xFF34D399)] : [c.amber, const Color(0xFFFBBF24)]),
+                        gradient: LinearGradient(colors: meetsReq ? [c.green, c.greenDim] : [c.amber, c.amber]),
                         borderRadius: BorderRadius.circular(5),
                         boxShadow: [BoxShadow(color: statusColor.withOpacity(0.5), blurRadius: 8)]),
                     ),

@@ -1,4 +1,4 @@
-import 'package:bhc_erp/Staff/common/academic_calendar.dart';
+import 'package:bhc_erp/Student/screens/academic_calendar.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
 import 'package:bhc_erp/Student/screens/attendance_screen.dart';

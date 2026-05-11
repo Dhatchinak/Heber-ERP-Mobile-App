@@ -81,7 +81,7 @@ class _ExamResultsPageState extends State<ExamResultsPage>
             ),
             headers: headers,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);

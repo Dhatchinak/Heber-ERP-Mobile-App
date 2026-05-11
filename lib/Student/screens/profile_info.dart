@@ -111,7 +111,7 @@ Future<void> _fetchStudentPhoto() async {
           'Referer': refererUrl,
           'Accept': 'application/json',
         },
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 12));
 
       if (!mounted) return;
       if (response.statusCode == 200) {
@@ -167,13 +167,13 @@ Future<void> _fetchStudentPhoto() async {
             color: c.surface,
             border: Border(
               bottom: BorderSide(
-                color: c.violet.withOpacity(0.2 + _appBarGlow.value * 0.15),
+                color: c.cyan.withOpacity(0.15 + _appBarGlow.value * 0.12),
                 width: 1,
               ),
             ),
             boxShadow: [
               BoxShadow(
-                color: c.violet.withOpacity(0.06 + _appBarGlow.value * 0.04),
+                color: c.cyan.withOpacity(0.04 + _appBarGlow.value * 0.03),
                 blurRadius: 20,
               ),
             ],
@@ -199,10 +199,10 @@ Future<void> _fetchStudentPhoto() async {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: c.violet.withOpacity(0.12),
+                    color: c.cyan.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.person_rounded, color: c.violet, size: 18),
+                  child: Icon(Icons.person_rounded, color: c.cyan, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -214,7 +214,7 @@ Future<void> _fetchStudentPhoto() async {
                           style: TextStyle(color: c.textHigh, fontSize: 16, fontWeight: FontWeight.w800)),
                       Text("Personal Information",
                           style: TextStyle(
-                            color: c.violet.withOpacity(0.8),
+                            color: c.cyan.withOpacity(0.75),
                             fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1,
                           )),
                     ],
@@ -223,9 +223,9 @@ Future<void> _fetchStudentPhoto() async {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: c.green.withOpacity(0.1),
+                    color: c.cyan.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: c.green.withOpacity(0.3)),
+                    border: Border.all(color: c.cyan.withOpacity(0.25)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -518,7 +518,7 @@ Future<void> _fetchStudentPhoto() async {
         .map((w) => w.isNotEmpty ? w[0] : '')
         .take(2).join().toUpperCase();
     return Container(
-      color: c.violet.withOpacity(0.12),
+      color: c.cyan.withOpacity(0.12),
       child: Center(
         child: initials.isNotEmpty
             ? Text(initials,

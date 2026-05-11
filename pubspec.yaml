@@ -26,11 +26,17 @@ dependencies:
   # Additional
   image_picker: ^1.0.5
   path_provider: ^2.1.1
+  printing: ^5.14.3
+  pdf: ^3.10.8
+  http_parser: ^4.0.2
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
 
 flutter:
   uses-material-design: true
@@ -39,3 +45,8 @@ flutter:
     - assets/
     - assets/bhclogo.png
     - assets/logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"

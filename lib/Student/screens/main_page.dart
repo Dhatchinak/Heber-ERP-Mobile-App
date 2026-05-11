@@ -1,4 +1,4 @@
-﻿import 'package:bhc_erp/Staff/common/academic_calendar.dart';
+﻿import 'package:bhc_erp/Student/screens/academic_calendar.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
 import 'package:bhc_erp/Student/screens/attendance_screen.dart';
@@ -38,6 +38,10 @@ import 'dart:convert';
 
 const String baseApiUrl = 'https://apierp.bhc.edu.in';
 const String refererUrl = 'http://117.232.64.75';
+
+// In-memory profile cache to avoid duplicate API calls
+Map<String, dynamic>? _cachedProfile;
+String? _cachedProfileRoll;
 
 
 // _C is now handled dynamically via ThemeProvider in build methods
@@ -92,17 +96,18 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   late AnimationController _appBarGlow;
 
   @override
-void initState() {
-  super.initState();
-    PhotoService.setCurrentStudent(widget.rollNo); // Set once
-  _appBarGlow = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
-    _initializePhoto();
-  _photoFuture = PhotoService.getCachedPhotoUrl();
-  _calendarDataFuture = _fetchAcademicCalendar();
-  _drawerDataFuture = _fetchDashboardDataForDrawer();
-  _dashboardDataFuture = _fetchDashboardData();
-  _cacheStudentPhoto(); // fire-and-forget
-}
+  void initState() {
+    super.initState();
+    PhotoService.setCurrentStudent(widget.rollNo);
+    _appBarGlow = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _photoFuture = PhotoService.getCachedPhotoUrl();
+    _calendarDataFuture = _fetchAcademicCalendar();
+    // Both dashboard and drawer share the same calendar future;
+    // profile is cached internally so only one HTTP call is made.
+    _drawerDataFuture = _fetchDashboardDataForDrawer();
+    _dashboardDataFuture = _fetchDashboardData();
+    _cacheStudentPhoto();
+  }
 
   @override
   void dispose() {
@@ -110,16 +115,6 @@ void initState() {
     super.dispose();
   }
 
-// In _MainPageState class, replace these methods:
-
-void _initializePhoto() {
-  _photoFuture = PhotoService.getCachedPhotoUrl();
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _cacheStudentPhoto();
-  });
-}
-
-// Change this from async void to proper Future handling
 
 
 // Fix _refreshPhoto - convert to async to match CustomDrawer signature
@@ -455,12 +450,18 @@ Future<Map<String, dynamic>> _fetchDashboardDataForDrawer() async {
 
 
 Future<Map<String, dynamic>> _fetchStudentProfile() async {
+  // Return cached result to avoid duplicate API calls
+  if (_cachedProfileRoll == widget.rollNo && _cachedProfile != null) {
+    return _cachedProfile!;
+  }
   try {
     final url = Uri.parse("$baseApiUrl/api/students/${widget.rollNo}");
     final response = await http.get(url, headers: {'Referer': refererUrl, 'Accept': 'application/json'})
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 12));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+      _cachedProfile = data;
+      _cachedProfileRoll = widget.rollNo;
       return data;
     }
     return {};
@@ -570,7 +571,7 @@ Future<Map<String, dynamic>> _fetchStudentProfile() async {
               'section_name': section,
             }),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
@@ -605,7 +606,7 @@ Future<List<ExamResult>> _fetchExamResults() async {
     final response = await http.get(
       Uri.parse('$baseApiUrl/api/students/exams/ese/${widget.rollNo}'),
       headers: {"Referer": refererUrl, "Accept": "application/json"},
-    ).timeout(const Duration(seconds: 30));
+    ).timeout(const Duration(seconds: 12));
     if (response.statusCode == 200) {
       final data = ExamResultsResponse.fromJson(json.decode(response.body)).data;
       return data;
@@ -622,7 +623,7 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
     final response = await http.get(
       Uri.parse("$baseApiUrl/api/students/attendance/${widget.rollNo}"),
       headers: {'Referer': refererUrl, 'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 30));
+    ).timeout(const Duration(seconds: 12));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return data;
@@ -639,31 +640,39 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
     int currentSemester,
   ) async {
     try {
-      if (attendanceData['success'] != true ||
-          attendanceData['data'] == null ||
-          attendanceData['data'].isEmpty)
-        return 0.0;
+      // Handle both {success: true, data: [...]} and direct data structures
+      List<dynamic> dataList = [];
+      if (attendanceData['success'] == true && attendanceData['data'] != null) {
+        dataList = attendanceData['data'] is List ? attendanceData['data'] : [];
+      } else if (attendanceData['data'] != null) {
+        dataList = attendanceData['data'] is List ? attendanceData['data'] : [];
+      } else if (attendanceData is List) {
+        dataList = attendanceData as List;
+      }
+      if (dataList.isEmpty) return 0.0;
+
       final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
-      if (!semesterInfo['isCurrent']) return 0.0;
-      final studentData = attendanceData['data'][0];
-      final currentSemesterType = semesterInfo['semester'] == 1
-          ? 'sem_odd'
-          : 'sem_even';
+      // isCurrent guard removed — always try to show best available data
+      final studentData = dataList[0];
+      final currentSemesterType = semesterInfo['semester'] == 1 ? 'sem_odd' : 'sem_even';
+
       List<dynamic> attendanceRecords = [];
       if (studentData['attendance'] != null) {
         final attendance = studentData['attendance'];
-        if (attendance[currentSemesterType] != null &&
-            attendance[currentSemesterType] is List) {
+        // Try current semester first, then fall back to whichever has data
+        if (attendance[currentSemesterType] is List && (attendance[currentSemesterType] as List).isNotEmpty) {
           attendanceRecords = attendance[currentSemesterType];
         } else {
-          if (attendance['sem_even'] != null && attendance['sem_even'] is List)
-            attendanceRecords = attendance['sem_even'];
-          else if (attendance['sem_odd'] != null &&
-              attendance['sem_odd'] is List)
-            attendanceRecords = attendance['sem_odd'];
+          for (final key in ['sem_odd', 'sem_even']) {
+            if (attendance[key] is List && (attendance[key] as List).isNotEmpty) {
+              attendanceRecords = attendance[key];
+              break;
+            }
+          }
         }
       }
       if (attendanceRecords.isEmpty) return 0.0;
+
       double totalAbsentDays = 0.0;
       int totalAttendanceDays = 0;
       for (var record in attendanceRecords) {
@@ -674,12 +683,12 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
               if (hoursData.isNotEmpty) {
                 totalAttendanceDays++;
                 int presentHours = hoursData
-                    .where((hour) => hour['status']?.toLowerCase() == 'present')
+                    .where((hour) => hour['status']?.toString().toLowerCase() == 'present')
                     .length;
                 int absentHours = hoursData.length - presentHours;
                 if (absentHours >= 3)
                   totalAbsentDays += 1.0;
-                else if (absentHours >= 1 && absentHours < 3)
+                else if (absentHours >= 1)
                   totalAbsentDays += 0.5;
               }
             }
@@ -687,10 +696,10 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
         }
       }
       return totalAttendanceDays > 0
-          ? ((totalAttendanceDays - totalAbsentDays) / totalAttendanceDays) *
-                100
+          ? ((totalAttendanceDays - totalAbsentDays) / totalAttendanceDays) * 100
           : 0.0;
     } catch (e) {
+      debugPrint('Attendance calc error: $e');
       return 0.0;
     }
   }
@@ -957,16 +966,16 @@ PreferredSizeWidget _buildFuturisticAppBar() {
                 ),
                 const SizedBox(width: 8),
                 
-                // ✅ SINGLE photo widget with refresh on tap (no duplicate button)
+                // Profile photo → tap shows animated bubble overlay
                 GestureDetector(
-                  onTap: _refreshPhoto,
+                  onTap: () => _showProfileBubble(context, _C),
                   child: StudentPhotoWidget(
                     rollNo: widget.rollNo,
                     size: 34,
                     borderColor: _C.cyan,
                     showRing: false,
                     showGlow: false,
-                    show3DEffect: false, // Disable 3D for app bar
+                    show3DEffect: false,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -980,6 +989,22 @@ PreferredSizeWidget _buildFuturisticAppBar() {
 }
 
 
+
+  void _showProfileBubble(BuildContext context, ThemeProvider _C) {
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(builder: (_) => _ProfileBubbleOverlay(
+      rollNo: widget.rollNo,
+      studentName: widget.studentName,
+      photoFuture: _photoFuture,
+      screenWidth: size.width,
+      onClose: () => entry.remove(),
+    ));
+    overlay.insert(entry);
+  }
 
   Widget _buildLoadingState() {
     final _C = Provider.of<ThemeProvider>(context);
@@ -1800,6 +1825,8 @@ Widget _buildDrawerFooter() {
       await Future.delayed(const Duration(milliseconds: 1500));
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
+      _cachedProfile = null;
+      _cachedProfileRoll = null;
       await PhotoService.clearCachedPhoto();
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -2564,21 +2591,13 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
 
   // ─── STATS GRID ───────────────────────────────────────────────────────────
 
-  Widget _buildStatsGrid(double cgpa, ThemeProvider _C)
- {
-    final attDisplay = widget.attendancePercentage > 0
-        ? "${widget.attendancePercentage.toStringAsFixed(1)}%"
-        : "N/A";
-    final attColor = widget.attendancePercentage >= 75
-        ? _C.green
-        : widget.attendancePercentage > 0
-        ? _C.amber
-        : _C.textLow;
-    final attStatus = widget.attendancePercentage >= 75
-        ? "Good standing"
-        : widget.attendancePercentage > 0
-        ? "Needs work"
-        : "No data";
+  Widget _buildStatsGrid(double cgpa, ThemeProvider _C) {
+    final att = widget.attendancePercentage;
+    final attDisplay = att > 0 ? '${att.toStringAsFixed(1)}%' : 'N/A';
+    final attColor = att >= 75 ? _C.green : att > 0 ? _C.amber : _C.textLow;
+    final attStatus = att >= 75 ? 'Good standing' : att > 0 ? 'Needs attention' : 'Loading...';
+    final cgpaColor = cgpa >= 8.0 ? _C.green : cgpa >= 6.0 ? _C.amber : cgpa > 0 ? _C.pink : _C.textLow;
+    final cgpaStatus = cgpa >= 8.0 ? 'Distinction' : cgpa >= 6.0 ? 'First class' : cgpa > 0 ? 'Pass' : 'No results yet';
 
     return GridView.count(
       shrinkWrap: true,
@@ -2588,45 +2607,97 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
       mainAxisSpacing: 12,
       childAspectRatio: 1.0,
       children: [
+        _statCardWithRing('CGPA', cgpa > 0 ? cgpa.toStringAsFixed(2) : '—',
+            cgpaStatus, Icons.leaderboard_rounded, cgpaColor, _C,
+            progress: cgpa > 0 ? (cgpa / 10.0).clamp(0.0, 1.0) : 0.0),
+        _statCardWithRing('Attendance', attDisplay, attStatus,
+            Icons.show_chart_rounded, attColor, _C,
+            progress: att > 0 ? (att / 100.0).clamp(0.0, 1.0) : 0.0),
         _statCard(
-          "CGPA",
-          cgpa > 0 ? cgpa.toStringAsFixed(2) : "—",
-          cgpa > 0 ? "Good standing" : "No results",
-          Icons.leaderboard_rounded,
-          cgpa > 0 ? _C.green : _C.textLow,
-          _C,
+          widget.dayOrder > 0 ? 'Day Order' : 'Progress',
+          widget.dayOrder > 0 ? 'Day ${widget.dayOrder}' : '${widget.weeksCompleted}w',
+          widget.dayOrder > 0 ? 'Today' : 'Wk ${widget.weeksCompleted}/${widget.totalWeeks}',
+          widget.dayOrder > 0 ? Icons.today_rounded : Icons.calendar_today_rounded,
+          _C.cyan, _C,
         ),
         _statCard(
-          "Attendance",
-          attDisplay,
-          attStatus,
-          Icons.percent_rounded,
-          attColor,
-          _C,
-        ),
-        _statCard(
-          widget.dayOrder > 0 ? "Day Order" : "Progress",
-          widget.dayOrder > 0
-              ? "Day ${widget.dayOrder}"
-              : "${widget.weeksCompleted}w",
-          widget.dayOrder > 0
-              ? "Today"
-              : "Week ${widget.weeksCompleted}/${widget.totalWeeks}",
-          widget.dayOrder > 0
-              ? Icons.today_rounded
-              : Icons.calendar_today_rounded,
-          _C.cyan,
-          _C,
-        ),
-        _statCard(
-          "Courses",
+          'Courses',
           widget.currentSemesterCourses.toString(),
-          "This semester",
+          'This semester',
           Icons.menu_book_rounded,
-          _C.violet,
-          _C,
+          _C.violet, _C,
         ),
       ],
+    );
+  }
+
+  Widget _statCardWithRing(String title, String value, String subtitle,
+      IconData icon, Color color, ThemeProvider _C, {required double progress}) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _C.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.2)),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 14)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Mini arc progress at top
+          SizedBox(
+            width: double.infinity,
+            height: 36,
+            child: Stack(alignment: Alignment.centerLeft, children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: color.withOpacity(0.2)),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              Positioned(
+                right: 0,
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: progress),
+                    duration: const Duration(milliseconds: 1200),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, v, __) => CustomPaint(
+                      painter: _ArcPainter(v, color, _C.border),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+          const Spacer(),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOut,
+            builder: (_, v, __) => Opacity(
+              opacity: v,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(value,
+                    style: TextStyle(
+                      color: color, fontSize: 24, fontWeight: FontWeight.w900, height: 1,
+                      shadows: [Shadow(color: color.withOpacity(0.4), blurRadius: 8)],
+                    )),
+                const SizedBox(height: 3),
+                Text(title,
+                    style: TextStyle(color: _C.textHigh, fontSize: 11, fontWeight: FontWeight.w700)),
+                Text(subtitle,
+                    style: TextStyle(color: _C.textLow, fontSize: 9)),
+              ]),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2700,14 +2771,30 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
 
  Widget _buildQuickActions(ThemeProvider _C) {
     final actions = [
-      {'icon': Icons.assignment_rounded, 'label': 'Tasks', 'color': _C.cyan},
-      {'icon': Icons.quiz_rounded, 'label': 'Quizzes', 'color': _C.green},
       {
-        'icon': Icons.library_books_rounded,
-        'label': 'Materials',
-        'color': _C.amber,
+        'icon': Icons.show_chart_rounded,
+        'label': 'Attendance',
+        'color': _C.cyan,
+        'screen': AttendanceScreen(rollNo: widget.rollNo, studentName: widget.studentName),
       },
-      {'icon': Icons.forum_rounded, 'label': 'Forum', 'color': _C.violet},
+      {
+        'icon': Icons.menu_book_rounded,
+        'label': 'Subjects',
+        'color': _C.green,
+        'screen': SubjectsPage(),
+      },
+      {
+        'icon': Icons.event_seat_rounded,
+        'label': 'Seating',
+        'color': _C.amber,
+        'screen': SeatingArrangementPage(rollNo: widget.rollNo, studentName: widget.studentName),
+      },
+      {
+        'icon': Icons.people_alt_rounded,
+        'label': 'Mentor',
+        'color': _C.violet,
+        'screen': MentorScreen(rollNo: widget.rollNo, studentName: widget.studentName),
+      },
     ];
 
     return _darkCard(
@@ -2721,8 +2808,25 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: actions.map((action) {
               final color = action['color'] as Color;
+              final screen = action['screen'] as Widget;
               return GestureDetector(
-                onTap: () => _showComingSoon(action['label'] as String, color, _C),
+                onTap: () => Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (_, __, ___) => screen,
+                    transitionDuration: const Duration(milliseconds: 350),
+                    transitionsBuilder: (_, anim, __, child) => FadeTransition(
+                      opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.04),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+                        child: child,
+                      ),
+                    ),
+                  ),
+                ),
                 child: Column(
                   children: [
                     AnimatedBuilder(
@@ -2736,28 +2840,18 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
                           border: Border.all(color: color.withOpacity(0.25)),
                           boxShadow: [
                             BoxShadow(
-                              color: color.withOpacity(
-                                0.06 + _pulseCtrl.value * 0.04,
-                              ),
+                              color: color.withOpacity(0.06 + _pulseCtrl.value * 0.04),
                               blurRadius: 12,
                             ),
                           ],
                         ),
-                        child: Icon(
-                          action['icon'] as IconData,
-                          color: color,
-                          size: 24,
-                        ),
+                        child: Icon(action['icon'] as IconData, color: color, size: 24),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       action['label'] as String,
-                      style: TextStyle(
-                        color: _C.textMid,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(color: _C.textMid, fontSize: 10, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -3233,4 +3327,279 @@ class ExamResult {
       internalId: json['id'] ?? 0,
     );
   }
+}
+
+// ─── Animated profile bubble overlay ─────────────────────────────────────────
+class _ProfileBubbleOverlay extends StatefulWidget {
+  final String rollNo;
+  final String studentName;
+  final Future<String?> photoFuture;
+  final double screenWidth;
+  final VoidCallback onClose;
+
+  const _ProfileBubbleOverlay({
+    required this.rollNo,
+    required this.studentName,
+    required this.photoFuture,
+    required this.screenWidth,
+    required this.onClose,
+  });
+
+  @override
+  State<_ProfileBubbleOverlay> createState() => _ProfileBubbleOverlayState();
+}
+
+class _ProfileBubbleOverlayState extends State<_ProfileBubbleOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0.1, -0.05), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  Future<void> _dismiss() async {
+    await _ctrl.reverse();
+    widget.onClose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final _C = Provider.of<ThemeProvider>(context, listen: false);
+    return GestureDetector(
+      onTap: _dismiss,
+      behavior: HitTestBehavior.translucent,
+      child: Stack(children: [
+        // Dim backdrop
+        FadeTransition(
+          opacity: _fade,
+          child: Container(color: Colors.black.withOpacity(0.35)),
+        ),
+        // Bubble positioned top-right under appbar
+        Positioned(
+          top: 72,
+          right: 12,
+          child: GestureDetector(
+            onTap: () {}, // prevent backdrop tap from closing when tapping card
+            child: SlideTransition(
+              position: _slide,
+              child: ScaleTransition(
+                scale: _scale,
+                alignment: Alignment.topRight,
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: _buildBubbleCard(_C),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildBubbleCard(ThemeProvider _C) {
+    return Container(
+      width: 240,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _C.elevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _C.cyan.withOpacity(0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: _C.cyan.withOpacity(0.15), blurRadius: 24, spreadRadius: 2),
+          BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 16),
+        ],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Arrow pointer
+        Align(
+          alignment: Alignment.topRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 4),
+            child: CustomPaint(
+              size: const Size(12, 8),
+              painter: _ArrowPainter(color: _C.elevated, borderColor: _C.cyan.withOpacity(0.3)),
+            ),
+          ),
+        ),
+        // Photo with animated ring
+        _AnimatedRingPhoto(photoFuture: widget.photoFuture, rollNo: widget.rollNo),
+        const SizedBox(height: 12),
+        // Name
+        Text(
+          widget.studentName,
+          style: TextStyle(color: _C.textHigh, fontSize: 15, fontWeight: FontWeight.w800),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        // Roll No badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          decoration: BoxDecoration(
+            color: _C.cyan.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _C.cyan.withOpacity(0.3)),
+          ),
+          child: Text(
+            widget.rollNo,
+            style: TextStyle(color: _C.cyan, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Active badge
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 6, height: 6,
+            decoration: BoxDecoration(
+              color: _C.green, shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: _C.green.withOpacity(0.6), blurRadius: 4)],
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text('Active Student', style: TextStyle(color: _C.textMid, fontSize: 11)),
+        ]),
+        const SizedBox(height: 12),
+        Divider(height: 1, color: _C.border),
+        const SizedBox(height: 10),
+        // Close button
+        GestureDetector(
+          onTap: _dismiss,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: _C.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _C.border),
+            ),
+            child: Text(
+              'Close',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _C.textMid, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AnimatedRingPhoto extends StatefulWidget {
+  final Future<String?> photoFuture;
+  final String rollNo;
+  const _AnimatedRingPhoto({required this.photoFuture, required this.rollNo});
+  @override State<_AnimatedRingPhoto> createState() => _AnimatedRingPhotoState();
+}
+
+class _AnimatedRingPhotoState extends State<_AnimatedRingPhoto>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ring;
+  @override
+  void initState() {
+    super.initState();
+    _ring = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
+  }
+  @override void dispose() { _ring.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final _C = Provider.of<ThemeProvider>(context, listen: false);
+    return FutureBuilder<String?>(
+      future: widget.photoFuture,
+      builder: (_, snap) => AnimatedBuilder(
+        animation: _ring,
+        builder: (_, __) => Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: SweepGradient(
+              startAngle: 0,
+              endAngle: 6.28,
+              transform: GradientRotation(_ring.value * 6.28),
+              colors: [
+                _C.cyan,
+                _C.violet,
+                _C.cyan.withOpacity(0.3),
+                _C.cyan,
+              ],
+            ),
+          ),
+          padding: const EdgeInsets.all(2.5),
+          child: Container(
+            decoration: BoxDecoration(shape: BoxShape.circle, color: _C.elevated),
+            child: ClipOval(
+              child: snap.hasData && snap.data != null
+                  ? Image.network(snap.data!, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholder(_C))
+                  : _placeholder(_C),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder(ThemeProvider _C) => Container(
+    color: _C.surface,
+    child: Icon(Icons.person_rounded, color: _C.textLow, size: 36),
+  );
+}
+
+class _ArrowPainter extends CustomPainter {
+  final Color color;
+  final Color borderColor;
+  const _ArrowPainter({required this.color, required this.borderColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = borderColor..strokeWidth = 1.5..style = PaintingStyle.stroke;
+    final fill = Paint()..color = color..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(size.width / 2 - 6, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width / 2 + 6, size.height)
+      ..close();
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, paint);
+  }
+  @override bool shouldRepaint(_) => false;
+}
+
+// ── Arc progress painter for stat cards ──────────────────────────────────────
+class _ArcPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final Color trackColor;
+  const _ArcPainter(this.progress, this.color, this.trackColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const startAngle = -2.4;
+    const sweepMax = 4.8;
+    final rect = Rect.fromCircle(center: Offset(size.width / 2, size.height / 2), radius: size.width / 2 - 3);
+    canvas.drawArc(rect, startAngle, sweepMax, false,
+        Paint()..color = trackColor..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+    if (progress > 0) {
+      canvas.drawArc(rect, startAngle, sweepMax * progress, false,
+          Paint()..color = color..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2));
+    }
+  }
+  @override bool shouldRepaint(_ArcPainter o) => o.progress != progress;
 }

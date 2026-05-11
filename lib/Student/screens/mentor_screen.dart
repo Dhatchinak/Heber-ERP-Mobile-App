@@ -101,7 +101,7 @@ class _MentorScreenState extends State<MentorScreen>
               'Accept': 'application/json',
             },
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 12));
 
       if (mentorResponse.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(

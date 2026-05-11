@@ -78,7 +78,7 @@ class _SeatingArrangementPageState extends State<SeatingArrangementPage>
             ),
             headers: headers,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
@@ -124,13 +124,13 @@ class _SeatingArrangementPageState extends State<SeatingArrangementPage>
               color: c.surface,
               border: Border(
                 bottom: BorderSide(
-                  color: c.violet.withOpacity(0.2 + _appBarGlow.value * 0.15),
+                  color: c.cyan.withOpacity(0.15 + _appBarGlow.value * 0.12),
                   width: 1,
                 ),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: c.violet.withOpacity(0.06 + _appBarGlow.value * 0.04),
+                  color: c.cyan.withOpacity(0.04 + _appBarGlow.value * 0.03),
                   blurRadius: 20,
                   spreadRadius: 0,
                 ),
@@ -175,7 +175,7 @@ class _SeatingArrangementPageState extends State<SeatingArrangementPage>
                       Text(
                         "Exam Hall Allocations",
                         style: TextStyle(
-                          color: c.violet.withOpacity(0.8),
+                          color: c.cyan.withOpacity(0.75),
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1,
