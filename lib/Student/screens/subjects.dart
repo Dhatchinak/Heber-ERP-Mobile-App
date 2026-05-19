@@ -111,6 +111,10 @@ class ApiService {
 }
 
 class SubjectsPage extends StatefulWidget {
+  final String? rollNo;
+  final String? studentName;
+    const SubjectsPage({super.key, this.rollNo, this.studentName});
+
   @override
   _SubjectsPageState createState() => _SubjectsPageState();
 }
@@ -177,28 +181,31 @@ class _SubjectsPageState extends State<SubjectsPage>
     academicYear = academicYear.clamp(1, 2);
     return "Year $academicYear";
   }
-
-  Future<void> _loadStudentDataAndFetchSubjects() async {
+Future<void> _loadStudentDataAndFetchSubjects() async {
+  setState(() {
+    isLoading = true;
+    hasError = false;
+  });
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Use passed parameters first, then fallback to SharedPreferences
+    rollNo = widget.rollNo ?? prefs.getString('rollNo');
+    studentName = widget.studentName ?? prefs.getString('studentName');
+    
+    if (rollNo == null) throw Exception('Please login again');
+    
+    await _fetchStudentProfile(rollNo!);
+    await _fetchSubjects();
+    _staggerCtrl.forward();
+  } catch (e) {
     setState(() {
-      isLoading = true;
-      hasError = false;
+      hasError = true;
+      errorMessage = e.toString();
+      isLoading = false;
     });
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      rollNo = prefs.getString('rollNo');
-      studentName = prefs.getString('studentName');
-      if (rollNo == null) throw Exception('Please login again');
-      await _fetchStudentProfile(rollNo!);
-      await _fetchSubjects();
-      _staggerCtrl.forward();
-    } catch (e) {
-      setState(() {
-        hasError = true;
-        errorMessage = e.toString();
-        isLoading = false;
-      });
-    }
   }
+}
 
   Future<void> _fetchStudentProfile(String rollNo) async {
     try {
