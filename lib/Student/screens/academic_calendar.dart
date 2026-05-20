@@ -112,9 +112,7 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 class AcademicCalendarScreen extends StatefulWidget {
   final String rollNo;
@@ -231,7 +229,6 @@ Future<void> _loadStudentName() async {
   });
 }
 
-  // ─── FETCH ────────────────────────────────────────────────────────────────
 
   Future<void> _fetchCalendarData() async {
     setState(() {
