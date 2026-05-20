@@ -10,8 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  DATA MODELS
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 enum EventType { exam, holiday, academic, staff, student, department }
 
