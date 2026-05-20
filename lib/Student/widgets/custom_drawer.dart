@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bhc_erp/Student/screens/academic_calendar.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
@@ -13,6 +15,7 @@ import 'package:bhc_erp/Student/services/CacheService.dart';
 import 'package:bhc_erp/Student/services/photo_service.dart';
 import 'package:bhc_erp/Student/theme_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -51,18 +54,23 @@ class _CustomDrawerState extends State<CustomDrawer> {
     super.initState();
     _rollNo = widget.rollNo.trim();
     _studentName = widget.studentName;
-    _drawerDataFuture = widget.fetchDrawerData != null
-        ? widget.fetchDrawerData!()
-        : _fetchFallbackDrawerData();
+
+    if (widget.fetchDrawerData != null) {
+      // Dashboard passes cached future — use directly
+      _drawerDataFuture = widget.fetchDrawerData!();
+    } else {
+      // Other screens — will re-assign after prefs load in _initData()
+      _drawerDataFuture = Future.value(_defaultDrawerData());
+    }
     _initData();
   }
 
   Future<void> _initData() async {
-    // Load from SharedPreferences if widget values are empty
     final prefs = await SharedPreferences.getInstance();
     final savedRollNo = prefs.getString('rollNo') ?? '';
     final savedName = prefs.getString('studentName') ?? '';
 
+    // Synchronous state update
     if (mounted) {
       setState(() {
         if (_rollNo.isEmpty) _rollNo = savedRollNo;
@@ -70,7 +78,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
       });
     }
 
-    // Load photo
+    // Fetch drawer data (only for non-dashboard screens)
+    if (widget.fetchDrawerData == null && mounted) {
+      // Fetch the future (this is async, but we don't await it here)
+      final future = _fetchFallbackDrawerData();
+      // Update state synchronously with the future
+      if (mounted) {
+        setState(() {
+          _drawerDataFuture = future;
+        });
+      }
+    }
+
     await _loadPhoto();
   }
 
@@ -80,8 +99,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
     try {
       // Use widget's getPhotoFuture if provided (from dashboard — already cached)
       if (widget.getPhotoFuture != null) {
-        final url = await widget.getPhotoFuture!();
-        if (mounted) setState(() { _photoUrl = url; _photoLoading = false; });
+        final url = await widget.getPhotoFuture!()
+            .timeout(const Duration(seconds: 6), onTimeout: () => null);
+        if (mounted)
+          setState(() {
+            _photoUrl = url;
+            _photoLoading = false;
+          });
         return;
       }
 
@@ -97,23 +121,144 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
       String? url = await PhotoService.getCachedPhotoUrl(effectiveRollNo);
       if (url == null) {
-        url = await PhotoService.getStudentPhotoUrl(effectiveRollNo);
-        if (url != null) await PhotoService.cacheStudentPhoto(effectiveRollNo);
+        url = await PhotoService.getStudentPhotoUrl(effectiveRollNo)
+            .timeout(const Duration(seconds: 8), onTimeout: () => null);
+        if (url != null) {
+          await PhotoService.cacheStudentPhoto(effectiveRollNo)
+              .timeout(const Duration(seconds: 5), onTimeout: () {});
+        }
       }
 
-      if (mounted) setState(() { _photoUrl = url; _photoLoading = false; });
+      if (mounted)
+        setState(() {
+          _photoUrl = url;
+          _photoLoading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _photoLoading = false);
     }
   }
 
   Future<Map<String, dynamic>> _fetchFallbackDrawerData() async {
+    try {
+      final rollNo = _rollNo.isNotEmpty
+          ? _rollNo
+          : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
+      if (rollNo.isEmpty) return _defaultDrawerData();
+
+      // All 3 fetches in parallel with individual short timeouts
+      final results = await Future.wait([
+        _fetchCalendarData(),
+        _fetchAttendanceData(rollNo),
+        _fetchStudentProfile(rollNo),
+      ]).timeout(const Duration(seconds: 10), onTimeout: () => [{}, {}, {}]);
+
+      final calData = results[0] as Map<String, dynamic>;
+      final attData = results[1] as Map<String, dynamic>;
+      final profile = results[2] as Map<String, dynamic>;
+
+      final semInfo = _calcSemInfo(calData);
+      final att = _calcAttendancePct(attData);
+
+      // Fetch courses in parallel too — don't await sequentially
+      final courses = await _fetchCoursesCount(profile)
+          .timeout(const Duration(seconds: 8), onTimeout: () => 0);
+
+      return {
+        'currentSemester': semInfo['semester'],
+        'currentSemesterName': semInfo['semesterName'],
+        'weeksCompleted': semInfo['weeksCompleted'],
+        'totalWeeks': semInfo['totalWeeks'],
+        'currentSemesterCourses': courses,
+        'currentCGPA': 0.0,
+        'attendancePercentage': att,
+        'isCurrentSemester': true,
+        'usingFallback': profile.isEmpty,
+      };
+    } catch (e) {
+      debugPrint('DrawerFallback error: $e');
+      return _defaultDrawerData();
+    }
+  }
+
+  // Fetch real student profile for drawer
+  Future<Map<String, dynamic>> _fetchStudentProfile(String rollNo) async {
+    try {
+      final resp = await http.get(
+        Uri.parse('https://apierp.bhc.edu.in/api/students/$rollNo'),
+        headers: {
+          'Referer': 'http://117.232.64.75',
+          'Accept': 'application/json'
+        },
+      ).timeout(const Duration(seconds: 8));
+      if (resp.statusCode == 200)
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return {};
+  }
+
+  // Fetch real subject count from subjects API
+  Future<int> _fetchCoursesCount(Map<String, dynamic> profileResp) async {
+    try {
+      final studentData = profileResp['data'] as Map<String, dynamic>?;
+      if (studentData == null) return 6;
+      final currentAcademic =
+          studentData['current_academic'] as Map<String, dynamic>?;
+      final programName = currentAcademic?['degree_name'] as String? ?? '';
+      final section = currentAcademic?['section'] as String? ?? 'A';
+      final batch = studentData['batch'] as String? ?? '';
+
+      // Calculate academic year from batch
+      int year = 1;
+      if (batch.isNotEmpty) {
+        final parts = batch.split('-');
+        if (parts.length == 2) {
+          final startYear = int.tryParse(parts[0]) ?? DateTime.now().year;
+          final now = DateTime.now();
+          final diff = now.year - startYear + (now.month >= 6 ? 1 : 0);
+          year = diff.clamp(1, 4);
+        }
+      }
+
+      final resp = await http
+          .post(
+            Uri.parse('https://apierp.bhc.edu.in/api/students/subjects/'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Referer': 'http://117.232.64.75',
+            },
+            body: jsonEncode({
+              'program_name': programName,
+              'year': year.toString(),
+              'section_name': section,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['data'] != null) {
+          final subjects = data['data']['subjects'] as List<dynamic>?;
+          if (subjects != null && subjects.isNotEmpty) return subjects.length;
+        }
+      }
+    } catch (e) {
+      debugPrint('DrawerCourses error: $e');
+    }
+    return 6;
+  }
+
+  Map<String, dynamic> _defaultDrawerData() {
+    // Dynamically detect semester from current month
+    final month = DateTime.now().month;
+    final isOdd = month >= 6 && month <= 11;
     return {
-      'currentSemester': 1,
-      'currentSemesterName': 'Odd Semester',
+      'currentSemester': isOdd ? 1 : 2,
+      'currentSemesterName': isOdd ? 'Odd Semester' : 'Even Semester',
       'weeksCompleted': 0,
       'totalWeeks': 16,
-      'currentSemesterCourses': 6,
+      'currentSemesterCourses': 0, // 0 = loading, will be replaced by real data
       'currentCGPA': 0.0,
       'attendancePercentage': 0.0,
       'isCurrentSemester': true,
@@ -122,7 +267,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   String _getOrdinalSemester(int semester) {
-    const suffixes = ['', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'];
+    const suffixes = [
+      '',
+      '1st',
+      '2nd',
+      '3rd',
+      '4th',
+      '5th',
+      '6th',
+      '7th',
+      '8th'
+    ];
     return semester < suffixes.length ? suffixes[semester] : '${semester}th';
   }
 
@@ -134,7 +289,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
         pageBuilder: (_, __, ___) => page,
         transitionsBuilder: (_, anim, __, child) => SlideTransition(
           position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+              .animate(
+                  CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
           child: child,
         ),
         transitionDuration: const Duration(milliseconds: 350),
@@ -198,7 +354,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   Widget _buildAvatarFallback(ThemeProvider c) {
     final initials = _studentName.isNotEmpty
-        ? _studentName.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
+        ? _studentName
+            .trim()
+            .split(' ')
+            .map((w) => w.isNotEmpty ? w[0] : '')
+            .take(2)
+            .join()
+            .toUpperCase()
         : '?';
     return Container(
       color: c.cyan.withOpacity(0.12),
@@ -230,7 +392,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
             color: c.elevated,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: c.pink.withOpacity(0.3)),
-            boxShadow: [BoxShadow(color: c.pink.withOpacity(0.15), blurRadius: 30)],
+            boxShadow: [
+              BoxShadow(color: c.pink.withOpacity(0.15), blurRadius: 30)
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -239,7 +403,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [c.pink.withOpacity(0.15), c.pinkDim.withOpacity(0.08)],
+                    colors: [
+                      c.pink.withOpacity(0.15),
+                      c.pinkDim.withOpacity(0.08)
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -257,16 +424,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         shape: BoxShape.circle,
                         border: Border.all(color: c.pink.withOpacity(0.4)),
                       ),
-                      child: Icon(Icons.power_settings_new_rounded, color: c.pink, size: 30),
+                      child: Icon(Icons.power_settings_new_rounded,
+                          color: c.pink, size: 30),
                     ),
                     const SizedBox(height: 16),
                     Text("Sign Out?",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.textHigh)),
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: c.textHigh)),
                     const SizedBox(height: 8),
                     Text(
                       "You'll need to sign in again to access your account",
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: c.textMid, height: 1.4),
+                      style: TextStyle(
+                          fontSize: 13, color: c.textMid, height: 1.4),
                     ),
                   ],
                 ),
@@ -282,7 +454,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           side: BorderSide(color: c.border),
                           foregroundColor: c.textMid,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
                         ),
                         child: const Text("Cancel"),
                       ),
@@ -293,9 +466,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         onPressed: () => Navigator.of(ctx).pop(true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: c.pink,
-                          foregroundColor: c.isDarkMode ? Colors.white : c.textHigh,
+                          foregroundColor:
+                              c.isDarkMode ? Colors.white : c.textHigh,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
                           elevation: 0,
                         ),
                         child: const Row(
@@ -303,7 +478,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           children: [
                             Icon(Icons.logout_rounded, size: 16),
                             SizedBox(width: 6),
-                            Text("Logout", style: TextStyle(fontWeight: FontWeight.w700)),
+                            Text("Logout",
+                                style: TextStyle(fontWeight: FontWeight.w700)),
                           ],
                         ),
                       ),
@@ -335,12 +511,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 50, height: 50,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: c.pink),
+                  width: 50,
+                  height: 50,
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: c.pink),
                 ),
                 const SizedBox(height: 20),
                 Text("Signing out...",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.textMid)),
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: c.textMid)),
               ],
             ),
           ),
@@ -379,7 +560,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final isCalendar = widget.currentRoute == '/calendar';
 
     final displayRollNo = _rollNo.isNotEmpty ? _rollNo : widget.rollNo;
-    final displayName = _studentName.isNotEmpty ? _studentName : widget.studentName;
+    final displayName =
+        _studentName.isNotEmpty ? _studentName : widget.studentName;
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.84,
@@ -393,7 +575,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
           children: [
             // ── HEADER ──────────────────────────────────────────────────────
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.of(context).padding.top + 16,
+                20,
+                20,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -429,14 +616,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             const SizedBox(height: 6),
                             // Roll No chip
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: c.cyan.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: c.cyan.withOpacity(0.3)),
+                                border:
+                                    Border.all(color: c.cyan.withOpacity(0.3)),
                               ),
                               child: Text(
-                                displayRollNo.isNotEmpty ? displayRollNo : 'Loading...',
+                                displayRollNo.isNotEmpty
+                                    ? displayRollNo
+                                    : 'Loading...',
                                 style: TextStyle(
                                   color: c.cyan,
                                   fontSize: 11,
@@ -449,13 +640,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Row(
                               children: [
                                 Container(
-                                  width: 7, height: 7,
-                                  decoration: BoxDecoration(color: c.green, shape: BoxShape.circle),
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                      color: c.green, shape: BoxShape.circle),
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
                                   "Active Student",
-                                  style: TextStyle(color: c.textMid, fontSize: 11, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                      color: c.textMid,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500),
                                 ),
                               ],
                             ),
@@ -469,14 +665,25 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   FutureBuilder<Map<String, dynamic>>(
                     future: _drawerDataFuture,
                     builder: (context, snapshot) {
-                      final data = snapshot.data;
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return _buildLoadingStats(c); // Add loading state
+                      }
+
+                      if (snapshot.hasError) {
+                        return _buildErrorStats(c); // Add error state
+                      }
+
+                      final data = snapshot.data ?? _defaultDrawerData();
                       final semester = data?['currentSemester'] ?? 1;
-                      final semesterName = data?['currentSemesterName'] ?? 'Semester';
+                      final semesterName =
+                          data?['currentSemesterName'] ?? 'Semester';
                       final weeksCompleted = data?['weeksCompleted'] ?? 0;
                       final totalWeeks = data?['totalWeeks'] ?? 16;
                       final courses = data?['currentSemesterCourses'] ?? 6;
-                      final attendancePct = (data?['attendancePercentage'] ?? 0.0) as double;
-                      final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                      final attendancePct =
+                          (data?['attendancePercentage'] ?? 0.0) as double;
+                      final isLoading =
+                          snapshot.connectionState == ConnectionState.waiting;
 
                       return Container(
                         padding: const EdgeInsets.all(14),
@@ -491,18 +698,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(semesterName,
-                                    style: TextStyle(color: c.textHigh, fontSize: 13, fontWeight: FontWeight.w600)),
+                                    style: TextStyle(
+                                        color: c.textHigh,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600)),
                                 Text("Week $weeksCompleted/$totalWeeks",
-                                    style: TextStyle(color: c.textMid, fontSize: 11)),
+                                    style: TextStyle(
+                                        color: c.textMid, fontSize: 11)),
                               ],
                             ),
                             const SizedBox(height: 10),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: totalWeeks > 0 ? (weeksCompleted / totalWeeks).clamp(0.0, 1.0) : 0,
+                                value: totalWeeks > 0
+                                    ? (weeksCompleted / totalWeeks)
+                                        .clamp(0.0, 1.0)
+                                    : 0,
                                 backgroundColor: c.border,
-                                valueColor: AlwaysStoppedAnimation<Color>(c.cyan),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(c.cyan),
                                 minHeight: 4,
                               ),
                             ),
@@ -510,18 +725,39 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             isLoading
                                 ? Center(
                                     child: SizedBox(
-                                      width: 18, height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: c.cyan),
                                     ),
                                   )
                                 : Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
                                     children: [
-                                      _drawerStat(_getOrdinalSemester(semester), "SEM", c.violet, c),
+                                      _drawerStat(
+                                        (data?['usingFallback'] == true)
+                                            ? (semesterName.replaceAll(
+                                                ' Semester',
+                                                '')) // "Even" or "Odd"
+                                            : _getOrdinalSemester(
+                                                semester), // "2nd" when profile loaded
+                                        "SEM",
+                                        c.violet,
+                                        c,
+                                      ),
                                       _vDivider(c),
-                                      _drawerStat("$courses", "COURSES", c.cyan, c),
+                                      _drawerStat(
+                                          courses == 0 ? "…" : "$courses",
+                                          "COURSES",
+                                          c.cyan,
+                                          c),
                                       _vDivider(c),
-                                      _drawerStat("${attendancePct.toStringAsFixed(0)}%", "ATTEND", c.green, c),
+                                      _drawerStat(
+                                          "${attendancePct.toStringAsFixed(0)}%",
+                                          "ATTEND",
+                                          c.green,
+                                          c),
                                     ],
                                   ),
                           ],
@@ -540,34 +776,64 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 child: Column(
                   children: [
                     _navGroup("MAIN", [
-                      _navItem(Icons.dashboard_rounded, "Dashboard", c.cyan, isDashboard, c,
-                          onTap: () => _navigateTo(MainPage(rollNo: displayRollNo, studentName: displayName))),
+                      _navItem(Icons.dashboard_rounded, "Dashboard", c.cyan,
+                          isDashboard, c,
+                          onTap: () => _navigateTo(MainPage(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
                     ]),
                     _navGroup("ACADEMICS", [
-                      _navItem(Icons.person_rounded, "My Profile", c.violet, isProfile, c,
-                          onTap: () => _navigateTo(ProfileScreen(rollNo: displayRollNo, studentName: displayName))),
-                      _navItem(Icons.schedule_rounded, "Timetable", c.cyan, isTimetable, c,
-                          onTap: () => _navigateTo(TimetableScreen(rollNo: displayRollNo))),
-                      _navItem(Icons.subject_rounded, "Subjects", c.green, isSubjects, c,
-                          onTap: () => _navigateTo(SubjectsPage())),
-                      _navItem(Icons.school_rounded, "Student Mentor", c.amber, isMentor, c,
-                          onTap: () => _navigateTo(MentorScreen(rollNo: displayRollNo, studentName: displayName))),
+                      _navItem(Icons.person_rounded, "My Profile", c.violet,
+                          isProfile, c,
+                          onTap: () => _navigateTo(ProfileScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                      _navItem(Icons.schedule_rounded, "Timetable", c.cyan,
+                          isTimetable, c,
+                          onTap: () => _navigateTo(
+                              TimetableScreen(rollNo: displayRollNo))),
+                      // In custom_drawer.dart - UPDATE THIS:
+                      _navItem(Icons.subject_rounded, "Subjects", c.green,
+                          isSubjects, c,
+                          onTap: () => _navigateTo(SubjectsPage(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                      _navItem(Icons.school_rounded, "Student Mentor", c.amber,
+                          isMentor, c,
+                          onTap: () => _navigateTo(MentorScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
                     ]),
                     _navGroup("ATTENDANCE", [
-                      _navItem(Icons.calendar_today_rounded, "Daily Attendance", c.cyan, isAttendance, c,
-                          onTap: () => _navigateTo(AttendanceScreen(rollNo: displayRollNo, studentName: displayName))),
-                      _navItem(Icons.leave_bags_at_home_rounded, "Leave Management", c.pink, isLeave, c,
-                          onTap: () => _navigateTo(LeaveManagementScreen(rollNo: displayRollNo, studentName: displayName))),
+                      _navItem(Icons.calendar_today_rounded, "Daily Attendance",
+                          c.cyan, isAttendance, c,
+                          onTap: () => _navigateTo(AttendanceScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                      _navItem(Icons.leave_bags_at_home_rounded,
+                          "Leave Management", c.pink, isLeave, c,
+                          onTap: () => _navigateTo(LeaveManagementScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
                     ]),
                     _navGroup("EXAMINATIONS", [
-                      _navItem(Icons.grade_rounded, "Exam Results", c.green, isExamResults, c,
-                          onTap: () => _navigateTo(ExamResultsPage(studentName: displayName, rollNo: displayRollNo))),
-                      _navItem(Icons.chair_rounded, "Seating Arrangement", c.violet, isSeating, c,
-                          onTap: () => _navigateTo(SeatingArrangementPage(studentName: displayName, rollNo: displayRollNo))),
+                      _navItem(Icons.grade_rounded, "Exam Results", c.green,
+                          isExamResults, c,
+                          onTap: () => _navigateTo(ExamResultsPage(
+                              studentName: displayName,
+                              rollNo: displayRollNo))),
+                      _navItem(Icons.chair_rounded, "Seating Arrangement",
+                          c.violet, isSeating, c,
+                          onTap: () => _navigateTo(SeatingArrangementPage(
+                              studentName: displayName,
+                              rollNo: displayRollNo))),
                     ]),
                     _navGroup("CAMPUS", [
-                      _navItem(Icons.event_rounded, "Academic Calendar", c.amber, isCalendar, c,
-                          onTap: () => _navigateTo(AcademicCalendarScreen(rollNo: displayRollNo, studentName: displayName))),
+                      _navItem(Icons.event_rounded, "Academic Calendar",
+                          c.amber, isCalendar, c,
+                          onTap: () => _navigateTo(AcademicCalendarScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
                     ]),
                     const SizedBox(height: 8),
                   ],
@@ -586,14 +852,22 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Widget _drawerStat(String value, String label, Color color, ThemeProvider c) {
     return Column(
       children: [
-        Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w800)),
+        Text(value,
+            style: TextStyle(
+                color: color, fontSize: 16, fontWeight: FontWeight.w800)),
         const SizedBox(height: 2),
-        Text(label, style: TextStyle(color: c.textLow, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+        Text(label,
+            style: TextStyle(
+                color: c.textLow,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8)),
       ],
     );
   }
 
-  Widget _vDivider(ThemeProvider c) => Container(width: 1, height: 28, color: c.border);
+  Widget _vDivider(ThemeProvider c) =>
+      Container(width: 1, height: 28, color: c.border);
 
   Widget _navGroup(String title, List<Widget> items) {
     final c = Provider.of<ThemeProvider>(context);
@@ -603,14 +877,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
           child: Text(title,
-              style: TextStyle(color: c.textLow, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+              style: TextStyle(
+                  color: c.textLow,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
         ),
         ...items,
       ],
     );
   }
 
-  Widget _navItem(IconData icon, String title, Color color, bool isSelected, ThemeProvider c,
+  Widget _navItem(IconData icon, String title, Color color, bool isSelected,
+      ThemeProvider c,
       {required VoidCallback onTap}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -624,7 +903,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
         minLeadingWidth: 0,
         horizontalTitleGap: 12,
         leading: Container(
-          width: 36, height: 36,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: isSelected ? color.withOpacity(0.15) : c.elevated,
             borderRadius: BorderRadius.circular(10),
@@ -642,7 +922,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             )),
         trailing: isSelected
-            ? Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.6), size: 16)
+            ? Icon(Icons.chevron_right_rounded,
+                color: color.withOpacity(0.6), size: 16)
             : null,
         onTap: onTap,
       ),
@@ -654,7 +935,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       builder: (context, themeProvider, _) {
         return Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: c.border))),
+          decoration:
+              BoxDecoration(border: Border(top: BorderSide(color: c.border))),
           child: Column(
             children: [
               Container(
@@ -668,19 +950,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
                   leading: Container(
-                    width: 36, height: 36,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: c.cyan.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      themeProvider.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                      color: c.cyan, size: 17,
+                      themeProvider.isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      color: c.cyan,
+                      size: 17,
                     ),
                   ),
                   title: Text(
                     themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
-                    style: TextStyle(color: c.textHigh, fontSize: 13, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                        color: c.textHigh,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700),
                   ),
                   trailing: Switch(
                     value: themeProvider.isDarkMode,
@@ -705,7 +994,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
                   leading: Container(
-                    width: 36, height: 36,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: c.pink.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
@@ -713,17 +1003,231 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
                   ),
                   title: Text("Logout",
-                      style: TextStyle(color: c.pink, fontSize: 13, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: c.pink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700)),
                   onTap: _handleLogout,
                 ),
               ),
               const SizedBox(height: 10),
               Text("Heber ERP v1.0.0",
-                  style: TextStyle(color: c.textLow, fontSize: 11, letterSpacing: 0.5)),
+                  style: TextStyle(
+                      color: c.textLow, fontSize: 11, letterSpacing: 0.5)),
             ],
           ),
         );
       },
     );
   }
+
+  Future<Map<String, dynamic>> _fetchCalendarData() async {
+    try {
+      final now = DateTime.now();
+      final ay = '${now.year}-${now.year + 1}';
+      final resp = await http.get(
+        Uri.parse('https://apierp.bhc.edu.in/api/academic_calendar/$ay'),
+        headers: {
+          'Referer': 'http://117.232.64.75',
+          'Accept': 'application/json'
+        },
+      ).timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        if (body['success'] == true && body['data'] != null)
+          return body['data'];
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Future<Map<String, dynamic>> _fetchAttendanceData(String rollNo) async {
+    try {
+      final resp = await http.get(
+        Uri.parse('https://apierp.bhc.edu.in/api/students/attendance/$rollNo'),
+        headers: {
+          'Referer': 'http://117.232.64.75',
+          'Accept': 'application/json'
+        },
+      ).timeout(const Duration(seconds: 8));
+      if (resp.statusCode == 200)
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return {};
+  }
+
+// In custom_drawer.dart - REPLACE _calcSemInfo method:
+Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
+  final now = DateTime.now();
+  
+  // Try to detect from calendar dates first
+  if (cal.isNotEmpty) {
+    for (final entry in [
+      {'key': 'sem_odd', 'sem': 1, 'name': 'Odd Semester'},
+      {'key': 'sem_even', 'sem': 2, 'name': 'Even Semester'},
+    ]) {
+      final sem = cal[entry['key']] as Map<String, dynamic>?;
+      if (sem != null && sem['startDate'] != null && sem['endDate'] != null) {
+        try {
+          final s = DateTime.parse(sem['startDate']);
+          final e = DateTime.parse(sem['endDate']);
+          if (now.isAfter(s.subtract(const Duration(days: 1))) &&
+              now.isBefore(e.add(const Duration(days: 1)))) {
+            final totalWeeks = ((e.difference(s).inDays) / 7).ceil().clamp(1, 26);
+            final weeksCompleted = now.isBefore(s)
+                ? 0
+                : ((now.difference(s).inDays) / 7).floor().clamp(0, totalWeeks);
+            return {
+              'semester': entry['sem'],
+              'semesterName': entry['name'],
+              'weeksCompleted': weeksCompleted,
+              'totalWeeks': totalWeeks,
+            };
+          }
+        } catch (e) {
+          debugPrint('Error parsing dates: $e');
+        }
+      }
+    }
+  }
+  
+  // Fallback: use month-based detection
+  final isOdd = now.month >= 6 && now.month <= 11;
+  final currentYear = now.year;
+  DateTime startDate;
+  DateTime endDate;
+  
+  if (isOdd) {
+    startDate = DateTime(currentYear, 6, 1);
+    endDate = DateTime(currentYear, 11, 30);
+  } else {
+    startDate = DateTime(currentYear, 12, 1);
+    endDate = DateTime(currentYear + 1, 5, 31);
+  }
+  
+  final totalWeeks = ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
+  final weeksCompleted = now.isBefore(startDate)
+      ? 0
+      : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
+  
+  return {
+    'semester': isOdd ? 1 : 2,
+    'semesterName': isOdd ? 'Odd Semester' : 'Even Semester',
+    'weeksCompleted': weeksCompleted,
+    'totalWeeks': totalWeeks,
+  };
 }
+
+
+  double _calcAttendancePct(Map<String, dynamic> data) {
+    try {
+      // Shape A: { attendance: [ {sem_even: [...], sem_odd: [...]} ] }
+      if (data['attendance'] is List) {
+        final list = data['attendance'] as List;
+        if (list.isEmpty) return 0.0;
+        double totalAbsent = 0.0;
+        int totalDays = 0;
+        for (final yearItem in list) {
+          for (final semKey in ['sem_even', 'sem_odd']) {
+            final semList = yearItem[semKey] as List? ?? [];
+            for (final dayObj in semList) {
+              if (dayObj is! Map<String, dynamic>) continue;
+              dayObj.forEach((_, dayData) {
+                if (dayData is! Map<String, dynamic>) return;
+                final hours = dayData['hours'] as List? ?? [];
+                if (hours.isEmpty) return;
+                totalDays++;
+                final present = hours
+                    .where((h) =>
+                        h['status']?.toString().toLowerCase() == 'present')
+                    .length;
+                final absent = hours.length - present;
+                if (absent >= 3)
+                  totalAbsent += 1.0;
+                else if (absent >= 1) totalAbsent += 0.5;
+              });
+            }
+          }
+        }
+        return totalDays > 0
+            ? ((totalDays - totalAbsent) / totalDays) * 100
+            : 0.0;
+      }
+
+      // Shape B: { success: true, data: [ { attendance: { sem_even: [...] } } ] }
+      if (data['success'] == true && data['data'] is List) {
+        final dataList = data['data'] as List;
+        if (dataList.isEmpty) return 0.0;
+        final att = dataList[0]['attendance'];
+        if (att is Map<String, dynamic>) {
+          double totalAbsent = 0.0;
+          int totalDays = 0;
+          for (final semKey in ['sem_even', 'sem_odd']) {
+            final semList = att[semKey] as List? ?? [];
+            for (final dayObj in semList) {
+              if (dayObj is! Map<String, dynamic>) continue;
+              dayObj.forEach((_, dayData) {
+                if (dayData is! Map) return;
+                final hours = (dayData as Map)['hours'] as List? ?? [];
+                if (hours.isEmpty) return;
+                totalDays++;
+                final present = hours
+                    .where((h) =>
+                        h['status']?.toString().toLowerCase() == 'present')
+                    .length;
+                final absent = hours.length - present;
+                if (absent >= 3)
+                  totalAbsent += 1.0;
+                else if (absent >= 1) totalAbsent += 0.5;
+              });
+            }
+          }
+          return totalDays > 0
+              ? ((totalDays - totalAbsent) / totalDays) * 100
+              : 0.0;
+        }
+      }
+      return 0.0;
+    } catch (_) {
+      return 0.0;
+    }
+  }
+  
+Widget _buildLoadingStats(ThemeProvider c) {
+  return Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: c.bg.withOpacity(0.5),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: c.border),
+    ),
+    child: Center(
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
+      ),
+    ),
+  );
+}
+
+Widget _buildErrorStats(ThemeProvider c) {
+  return Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: c.bg.withOpacity(0.5),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: c.pink.withOpacity(0.3)),
+    ),
+    child: Column(
+      children: [
+        Icon(Icons.error_outline, color: c.pink, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          "Failed to load stats",
+          style: TextStyle(color: c.textMid, fontSize: 12),
+        ),
+      ],
+    ),
+  );
+}}

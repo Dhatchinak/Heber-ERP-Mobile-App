@@ -1,19 +1,6 @@
 import 'package:flutter/material.dart';
 
-// ─── DARK: Deep Space Premium ─────────────────────────────────────────────────
-// BG:       #05060F  (absolute void black-blue)
-// Surface:  #0B0D1C  (deep navy surface)
-// Elevated: #111428  (card layer)
-// Elevated2:#16193A  (elevated popups)
-// Border:   rgba(100,120,255,0.13) → #101535 approx
-// Cyan:     #7B8CFF  (electric indigo-blue — replaces cyan)
-// Violet:   #B06EFF  (neon purple)
-// Green:    #00E5A0  (neon emerald)
-// Amber:    #FFB340  (warm gold)
-// Pink:     #FF5FA0  (hot pink)
-// TextHigh: #EDF0FF  (near-white blue)
-// TextMid:  #7B8DB8  (mid steel blue)
-// TextLow:  #2E3A5E  (dim navy)
+
 class DarkColors {
   static const bg           = Color(0xFF05060F);
   static const surface      = Color(0xFF0B0D1C);

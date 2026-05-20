@@ -1,4 +1,6 @@
-﻿import 'package:bhc_erp/Student/screens/academic_calendar.dart';
+﻿import 'dart:ui' as ui;
+
+import 'package:bhc_erp/Student/screens/academic_calendar.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
 import 'package:bhc_erp/Student/screens/attendance_screen.dart';
@@ -43,9 +45,7 @@ const String refererUrl = 'http://117.232.64.75';
 Map<String, dynamic>? _cachedProfile;
 String? _cachedProfileRoll;
 
-
 // _C is now handled dynamically via ThemeProvider in build methods
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,7 +71,6 @@ class MyApp extends StatelessWidget {
     }
     return const UnifiedLoginScreen();
   }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,7 +98,9 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     PhotoService.setCurrentStudent(widget.rollNo);
-    _appBarGlow = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _appBarGlow =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..repeat(reverse: true);
     _photoFuture = PhotoService.getCachedPhotoUrl();
     _calendarDataFuture = _fetchAcademicCalendar();
     // Both dashboard and drawer share the same calendar future;
@@ -115,33 +116,31 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-
-
 // Fix _refreshPhoto - convert to async to match CustomDrawer signature
-Future<void> _refreshPhoto() async {
-  await PhotoService.clearCachedPhoto();
-  await PhotoService.cacheStudentPhoto(widget.rollNo);
-  if (mounted) {
-    final photoFuture = PhotoService.getCachedPhotoUrl();
-    setState(() {
-      _photoFuture = photoFuture;
-    });
+  Future<void> _refreshPhoto() async {
+    await PhotoService.clearCachedPhoto();
+    await PhotoService.cacheStudentPhoto(widget.rollNo);
+    if (mounted) {
+      final photoFuture = PhotoService.getCachedPhotoUrl();
+      setState(() {
+        _photoFuture = photoFuture;
+      });
+    }
   }
-}
 
 // Also update _cacheStudentPhoto to NOT call setState
-Future<void> _cacheStudentPhoto() async {
-  await PhotoService.cacheStudentPhoto(widget.rollNo);
-  if (mounted) {
-    // ✅ Resolve the future OUTSIDE setState first
-    final photoFuture = PhotoService.getCachedPhotoUrl();
-    setState(() {
-      _photoFuture = photoFuture; // ← Now this is just a variable assignment, no async
-    });
+  Future<void> _cacheStudentPhoto() async {
+    await PhotoService.cacheStudentPhoto(widget.rollNo);
+    if (mounted) {
+      // ✅ Resolve the future OUTSIDE setState first
+      final photoFuture = PhotoService.getCachedPhotoUrl();
+      setState(() {
+        _photoFuture =
+            photoFuture; // ← Now this is just a variable assignment, no async
+      });
+    }
   }
-}
- 
- 
+
   Future<Map<String, dynamic>> _fetchAcademicCalendar() async {
     try {
       final currentYear = DateTime.now().year;
@@ -150,16 +149,14 @@ Future<void> _cacheStudentPhoto() async {
       final url = Uri.parse(
         "$baseApiUrl/api/academic_calendar/$academicYear",
       );
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Referer': refererUrl,
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await http.get(
+        url,
+        headers: {
+          'Referer': refererUrl,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null)
@@ -232,9 +229,8 @@ Future<void> _cacheStudentPhoto() async {
     return {
       'semester': isOddSemester ? 1 : 2,
       'semesterName': isOddSemester ? 'Odd Semester' : 'Even Semester',
-      'startDate': isOddSemester
-          ? DateTime(now.year, 6, 1)
-          : DateTime(now.year, 12, 1),
+      'startDate':
+          isOddSemester ? DateTime(now.year, 6, 1) : DateTime(now.year, 12, 1),
       'endDate': isOddSemester
           ? DateTime(now.year, 11, 30)
           : DateTime(now.year + 1, 5, 31),
@@ -309,8 +305,8 @@ Future<void> _cacheStudentPhoto() async {
           final startDate = DateTime.parse(examData['startDate']);
           final endDate = DateTime.parse(examData['endDate']);
           DateTime current = startDate;
-          while (current.isBefore(endDate) ||
-              current.isAtSameMomentAs(endDate)) {
+          while (
+              current.isBefore(endDate) || current.isAtSameMomentAs(endDate)) {
             nonWorkingDays.add(_formatDateForComparison(current));
             current = current.add(const Duration(days: 1));
           }
@@ -329,16 +325,14 @@ Future<void> _cacheStudentPhoto() async {
       final url = Uri.parse(
         "$baseApiUrl/api/students/attendance/${widget.rollNo}",
       );
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Referer': refererUrl,
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 20));
+      final response = await http.get(
+        url,
+        headers: {
+          'Referer': refererUrl,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) return [];
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final attendance = body['attendance'] as List<dynamic>? ?? [];
@@ -360,116 +354,141 @@ Future<void> _cacheStudentPhoto() async {
     return [];
   }
 
-Future<Map<String, dynamic>> _fetchDashboardData() async {
-  try {
-    // Run all independent fetches in parallel
-    final results = await Future.wait([
-      _calendarDataFuture,           // already cached future
-      _fetchStudentProfile(),
-      _fetchExamResults(),
-      _fetchAttendanceData(),
-      _fetchTodayAttendance(),
-    ]);
+  Future<Map<String, dynamic>> _fetchDashboardData() async {
+    try {
+      // Run all independent fetches in parallel
+      final results = await Future.wait([
+        _calendarDataFuture, // already cached future
+        _fetchStudentProfile(),
+        _fetchExamResults(),
+        _fetchAttendanceData(),
+        _fetchTodayAttendance(),
+      ]);
 
-    final calendarData = results[0] as Map<String, dynamic>;
-    final studentProfile = results[1] as Map<String, dynamic>;
-    final examResults = results[2] as List<ExamResult>;
-    final attendanceData = results[3] as Map<String, dynamic>;
-    final todayAttendance = results[4] as List<Map<String, dynamic>>;
+      final calendarData = results[0] as Map<String, dynamic>;
+      final studentProfile = results[1] as Map<String, dynamic>;
+      final examResults = results[2] as List<ExamResult>;
+      final attendanceData = results[3] as Map<String, dynamic>;
+      final todayAttendance = results[4] as List<Map<String, dynamic>>;
+      final currentSemesterNumber = calendarData.isNotEmpty
+          ? _calculateFallbackSemester(calendarData) // trust calendar first
+          : _calculateCurrentSemesterNumber(studentProfile, calendarData);
+      final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
+      final weeksCompleted = _calculateWeeksCompleted(semesterInfo);
+      final totalWeeks = _calculateTotalWeeks(semesterInfo);
+      final dayOrder = _calculateCurrentDayOrder(semesterInfo);
+      final attendancePercentage = await _calculateCurrentSemesterAttendance(
+          attendanceData, calendarData, currentSemesterNumber);
+      final currentSemesterCourses =
+          await _getCurrentSemesterCourses(examResults, currentSemesterNumber);
 
-    final currentSemesterNumber = _calculateCurrentSemesterNumber(studentProfile, calendarData);
-    final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
-    final weeksCompleted = _calculateWeeksCompleted(semesterInfo);
-    final totalWeeks = _calculateTotalWeeks(semesterInfo);
-    final dayOrder = _calculateCurrentDayOrder(semesterInfo);
-    final attendancePercentage = await _calculateCurrentSemesterAttendance(attendanceData, calendarData, currentSemesterNumber);
-    final currentSemesterCourses = await _getCurrentSemesterCourses(examResults, currentSemesterNumber);
-
-    return {
-      'examResults': examResults,
-      'attendanceData': attendanceData,
-      'attendancePercentage': attendancePercentage,
-      'currentSemester': currentSemesterNumber,
-      'currentSemesterName': semesterInfo['semesterName'],
-      'weeksCompleted': weeksCompleted,
-      'totalWeeks': totalWeeks,
-      'dayOrder': dayOrder,
-      'isCurrentSemester': semesterInfo['isCurrent'] ?? true,
-      'currentSemesterCourses': currentSemesterCourses,
-      'todayAttendance': todayAttendance,
-      'calendarData': calendarData,
-    };
-  } catch (e) {
-    debugPrint('Error: $e');
-    return {};
-  }
-}
-
-Future<Map<String, dynamic>> _fetchDashboardDataForDrawer() async {
-  try {
-    // Run in parallel
-    final results = await Future.wait([
-      _calendarDataFuture,
-      _fetchStudentProfile(),
-      _fetchExamResults(),
-      _fetchAttendanceData(),
-    ]);
-
-    final calendarData = results[0] as Map<String, dynamic>;
-    final studentProfile = results[1] as Map<String, dynamic>;
-    final examResults = results[2] as List<ExamResult>;
-    final attendanceData = results[3] as Map<String, dynamic>;
-
-    final currentSemesterNumber = _calculateCurrentSemesterNumber(studentProfile, calendarData);
-    final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
-    final currentCGPA = _calculateCurrentCGPA(examResults);
-    double attendancePercentage = _calculateSimpleAttendance(attendanceData);
-    final currentSemesterCourses = await _getCurrentSemesterCourses(examResults, currentSemesterNumber);
-
-    return {
-      'currentSemester': currentSemesterNumber,
-      'currentSemesterName': semesterInfo['semesterName'],
-      'weeksCompleted': _calculateWeeksCompleted(semesterInfo),
-      'totalWeeks': _calculateTotalWeeks(semesterInfo),
-      'dayOrder': _calculateCurrentDayOrder(semesterInfo),
-      'currentSemesterCourses': currentSemesterCourses,
-      'currentCGPA': currentCGPA,
-      'attendancePercentage': attendancePercentage,
-      'isCurrentSemester': semesterInfo['isCurrent'] ?? true,
-      'usingFallback': studentProfile.isEmpty,
-    };
-  } catch (e) {
-    return {
-      'currentSemester': 1, 'currentSemesterName': 'Odd Semester',
-      'weeksCompleted': 0, 'totalWeeks': 16, 'dayOrder': 0,
-      'currentSemesterCourses': 6, 'currentCGPA': 0.0,
-      'attendancePercentage': 0.0, 'isCurrentSemester': true, 'usingFallback': true,
-    };
-  }
-}
-
-
-Future<Map<String, dynamic>> _fetchStudentProfile() async {
-  // Return cached result to avoid duplicate API calls
-  if (_cachedProfileRoll == widget.rollNo && _cachedProfile != null) {
-    return _cachedProfile!;
-  }
-  try {
-    final url = Uri.parse("$baseApiUrl/api/students/${widget.rollNo}");
-    final response = await http.get(url, headers: {'Referer': refererUrl, 'Accept': 'application/json'})
-        .timeout(const Duration(seconds: 12));
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      _cachedProfile = data;
-      _cachedProfileRoll = widget.rollNo;
-      return data;
+      return {
+        'examResults': examResults,
+        'attendanceData': attendanceData,
+        'attendancePercentage': attendancePercentage,
+        'currentSemester': currentSemesterNumber,
+        'currentSemesterName': semesterInfo['semesterName'],
+        'weeksCompleted': weeksCompleted,
+        'totalWeeks': totalWeeks,
+        'dayOrder': dayOrder,
+        'isCurrentSemester': semesterInfo['isCurrent'] ?? true,
+        'currentSemesterCourses': currentSemesterCourses,
+        'todayAttendance': todayAttendance,
+        'calendarData': calendarData,
+      };
+    } catch (e) {
+      debugPrint('Error: $e');
+      return {};
     }
-    return {};
-  } catch (e) {
-    return {};
   }
-}
 
+  Future<Map<String, dynamic>> _fetchDashboardDataForDrawer() async {
+    try {
+      // Run in parallel
+      final results = await Future.wait([
+        _calendarDataFuture,
+        _fetchStudentProfile(),
+        _fetchExamResults(),
+        _fetchAttendanceData(),
+      ]);
+
+      final calendarData = results[0] as Map<String, dynamic>;
+      final studentProfile = results[1] as Map<String, dynamic>;
+      final examResults = results[2] as List<ExamResult>;
+      final attendanceData = results[3] as Map<String, dynamic>;
+
+      final currentSemesterNumber =
+          _calculateCurrentSemesterNumber(studentProfile, calendarData);
+      final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
+      final currentCGPA = _calculateCurrentCGPA(examResults);
+      double attendancePercentage = _calculateSimpleAttendance(attendanceData);
+      if (attendancePercentage == 0.0) {
+        // Try the fuller calculation as fallback
+        attendancePercentage = await _calculateCurrentSemesterAttendance(
+            attendanceData, calendarData, currentSemesterNumber);
+      }
+
+// Also add to returned map for debugging:
+      debugPrint(
+          'Drawer: sem=$currentSemesterNumber att=$attendancePercentage');
+      final currentSemesterCourses =
+          await _getCurrentSemesterCourses(examResults, currentSemesterNumber);
+
+      return {
+        'currentSemester': currentSemesterNumber,
+        'currentSemesterName': semesterInfo['semesterName'],
+        'weeksCompleted': _calculateWeeksCompleted(semesterInfo),
+        'totalWeeks': _calculateTotalWeeks(semesterInfo),
+        'dayOrder': _calculateCurrentDayOrder(semesterInfo),
+        'currentSemesterCourses': currentSemesterCourses,
+        'currentCGPA': currentCGPA,
+        'attendancePercentage': attendancePercentage,
+        'isCurrentSemester': semesterInfo['isCurrent'] ?? true,
+        'usingFallback':
+            studentProfile.isEmpty || studentProfile['data'] == null,
+      };
+    } catch (e) {
+      return {
+        'currentSemester': 1,
+        'currentSemesterName': 'Odd Semester',
+        'weeksCompleted': 0,
+        'totalWeeks': 16,
+        'dayOrder': 0,
+        'currentSemesterCourses': 6,
+        'currentCGPA': 0.0,
+        'attendancePercentage': 0.0,
+        'isCurrentSemester': true,
+        'usingFallback': true,
+      };
+    }
+  }
+
+
+
+
+
+
+  Future<Map<String, dynamic>> _fetchStudentProfile() async {
+    if (_cachedProfileRoll == widget.rollNo && _cachedProfile != null) {
+      return _cachedProfile!;
+    }
+    try {
+      final url = Uri.parse("$baseApiUrl/api/students/${widget.rollNo}");
+      final response = await http.get(url, headers: {
+        'Referer': refererUrl,
+        'Accept': 'application/json'
+      }).timeout(const Duration(seconds: 12));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        _cachedProfile = data;
+        _cachedProfileRoll = widget.rollNo;
+        return data;
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
 
   int _calculateCurrentSemesterNumber(
     Map<String, dynamic> studentProfile,
@@ -499,7 +518,7 @@ Future<Map<String, dynamic>> _fetchStudentProfile() async {
       final currentSemesterStart = semesterInfo['startDate'] as DateTime;
       final monthsDifference =
           (currentSemesterStart.year - admissionDate.year) * 12 +
-          (currentSemesterStart.month - admissionDate.month);
+              (currentSemesterStart.month - admissionDate.month);
       int currentSemester;
       if (monthsDifference < 6)
         currentSemester = 1;
@@ -521,8 +540,9 @@ Future<Map<String, dynamic>> _fetchStudentProfile() async {
   }
 
   int _calculateFallbackSemester(Map<String, dynamic> calendarData) {
-    final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
-    return semesterInfo['semester'] as int;
+    final info = _calculateCurrentSemesterInfo(calendarData);
+    // 'semester' key is 1=odd, 2=even — correct
+    return info['semester'] as int;
   }
 
   Future<int> _fetchCurrentSemesterCoursesCount() async {
@@ -533,11 +553,9 @@ Future<Map<String, dynamic>> _fetchStudentProfile() async {
       if (studentData == null) return 6;
       final currentAcademic =
           studentData['current_academic'] as Map<String, dynamic>?;
-      final programName =
-          currentAcademic?['degree_name'] as String? ??
-          'M.Sc. Computer Science';
+      final programName = currentAcademic?['degree_name'] as String? ?? '';
       final section = currentAcademic?['section'] as String? ?? 'A';
-      final batch = studentData['batch'] as String? ?? '2025-2027';
+      final batch = studentData['batch'] as String? ?? '';
       String getAcademicYear(String batchRange) {
         if (batchRange.isEmpty) return "1";
         final years = batchRange.split('-');
@@ -601,38 +619,39 @@ Future<Map<String, dynamic>> _fetchStudentProfile() async {
       return previousCourses > 0 ? previousCourses : 6;
     }
   }
-Future<List<ExamResult>> _fetchExamResults() async {
-  try {
-    final response = await http.get(
-      Uri.parse('$baseApiUrl/api/students/exams/ese/${widget.rollNo}'),
-      headers: {"Referer": refererUrl, "Accept": "application/json"},
-    ).timeout(const Duration(seconds: 12));
-    if (response.statusCode == 200) {
-      final data = ExamResultsResponse.fromJson(json.decode(response.body)).data;
-      return data;
-    }
-    return [];
-  } catch (e) {
-    return [];
-  }
-}
 
-
-Future<Map<String, dynamic>> _fetchAttendanceData() async {
-  try {
-    final response = await http.get(
-      Uri.parse("$baseApiUrl/api/students/attendance/${widget.rollNo}"),
-      headers: {'Referer': refererUrl, 'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 12));
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data;
+  Future<List<ExamResult>> _fetchExamResults() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseApiUrl/api/students/exams/ese/${widget.rollNo}'),
+        headers: {"Referer": refererUrl, "Accept": "application/json"},
+      ).timeout(const Duration(seconds: 12));
+      if (response.statusCode == 200) {
+        final data =
+            ExamResultsResponse.fromJson(json.decode(response.body)).data;
+        return data;
+      }
+      return [];
+    } catch (e) {
+      return [];
     }
-    return {};
-  } catch (e) {
-    return {};
   }
-}
+
+  Future<Map<String, dynamic>> _fetchAttendanceData() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseApiUrl/api/students/attendance/${widget.rollNo}"),
+        headers: {'Referer': refererUrl, 'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 12));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data;
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
 
   Future<double> _calculateCurrentSemesterAttendance(
     Map<String, dynamic> attendanceData,
@@ -640,63 +659,59 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
     int currentSemester,
   ) async {
     try {
-      // Handle both {success: true, data: [...]} and direct data structures
-      List<dynamic> dataList = [];
-      if (attendanceData['success'] == true && attendanceData['data'] != null) {
-        dataList = attendanceData['data'] is List ? attendanceData['data'] : [];
-      } else if (attendanceData['data'] != null) {
-        dataList = attendanceData['data'] is List ? attendanceData['data'] : [];
-      } else if (attendanceData is List) {
-        dataList = attendanceData as List;
+      // Your API: { attendance: [ { sem_even: [...], sem_odd: [...] } ] }
+      List<dynamic> yearList = [];
+      if (attendanceData['attendance'] is List) {
+        yearList = attendanceData['attendance'] as List;
+      } else if (attendanceData['data'] is List) {
+        final d = (attendanceData['data'] as List);
+        if (d.isNotEmpty && d[0]['attendance'] is Map) {
+          // Shape B — wrap in list so loop below works
+          yearList = [d[0]['attendance']];
+        }
       }
-      if (dataList.isEmpty) return 0.0;
+      if (yearList.isEmpty) return 0.0;
 
-      final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
-      // isCurrent guard removed — always try to show best available data
-      final studentData = dataList[0];
-      final currentSemesterType = semesterInfo['semester'] == 1 ? 'sem_odd' : 'sem_even';
-
-      List<dynamic> attendanceRecords = [];
-      if (studentData['attendance'] != null) {
-        final attendance = studentData['attendance'];
-        // Try current semester first, then fall back to whichever has data
-        if (attendance[currentSemesterType] is List && (attendance[currentSemesterType] as List).isNotEmpty) {
-          attendanceRecords = attendance[currentSemesterType];
-        } else {
-          for (final key in ['sem_odd', 'sem_even']) {
-            if (attendance[key] is List && (attendance[key] as List).isNotEmpty) {
-              attendanceRecords = attendance[key];
-              break;
-            }
+      final semKey = currentSemester == 1 ? 'sem_odd' : 'sem_even';
+      List<dynamic> records = [];
+      for (final item in yearList) {
+        if (item[semKey] is List && (item[semKey] as List).isNotEmpty) {
+          records = item[semKey] as List;
+          break;
+        }
+      }
+      // Fallback: try other semester
+      if (records.isEmpty) {
+        final fallback = currentSemester == 1 ? 'sem_even' : 'sem_odd';
+        for (final item in yearList) {
+          if (item[fallback] is List && (item[fallback] as List).isNotEmpty) {
+            records = item[fallback] as List;
+            break;
           }
         }
       }
-      if (attendanceRecords.isEmpty) return 0.0;
+      if (records.isEmpty) return 0.0;
 
-      double totalAbsentDays = 0.0;
-      int totalAttendanceDays = 0;
-      for (var record in attendanceRecords) {
-        if (record is Map<String, dynamic>) {
-          record.forEach((dateKey, attendanceInfo) {
-            if (attendanceInfo is Map<String, dynamic>) {
-              final hoursData = attendanceInfo['hours'] as List<dynamic>? ?? [];
-              if (hoursData.isNotEmpty) {
-                totalAttendanceDays++;
-                int presentHours = hoursData
-                    .where((hour) => hour['status']?.toString().toLowerCase() == 'present')
-                    .length;
-                int absentHours = hoursData.length - presentHours;
-                if (absentHours >= 3)
-                  totalAbsentDays += 1.0;
-                else if (absentHours >= 1)
-                  totalAbsentDays += 0.5;
-              }
-            }
-          });
-        }
+      double totalAbsent = 0.0;
+      int totalDays = 0;
+      for (final dayObj in records) {
+        if (dayObj is! Map<String, dynamic>) continue;
+        dayObj.forEach((_, info) {
+          if (info is! Map<String, dynamic>) return;
+          final hours = info['hours'] as List? ?? [];
+          if (hours.isEmpty) return;
+          totalDays++;
+          final present = hours
+              .where((h) => h['status']?.toString().toLowerCase() == 'present')
+              .length;
+          final absent = hours.length - present;
+          if (absent >= 3)
+            totalAbsent += 1.0;
+          else if (absent >= 1) totalAbsent += 0.5;
+        });
       }
-      return totalAttendanceDays > 0
-          ? ((totalAttendanceDays - totalAbsentDays) / totalAttendanceDays) * 100
+      return totalDays > 0
+          ? ((totalDays - totalAbsent) / totalDays) * 100
           : 0.0;
     } catch (e) {
       debugPrint('Attendance calc error: $e');
@@ -706,46 +721,86 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
 
   double _calculateSimpleAttendance(Map<String, dynamic> attendanceData) {
     try {
-      if (attendanceData['success'] != true ||
-          attendanceData['data'] == null ||
-          attendanceData['data'].isEmpty)
-        return 0.0;
-      final studentData = attendanceData['data'][0];
-      final Map<String, dynamic>? attendance = studentData['attendance'];
-      if (attendance == null) return 0.0;
-      double totalAbsentDays = 0.0;
-      int totalDays = 0;
-      for (var semester in ['sem_even', 'sem_odd']) {
-        final semesterData = attendance[semester];
-        if (semesterData != null && semesterData is List) {
-          for (var dayRecord in semesterData) {
-            if (dayRecord is Map<String, dynamic>) {
-              dayRecord.forEach((date, dayData) {
-                if (dayData is Map<String, dynamic>) {
-                  final hours = dayData['hours'] as List<dynamic>? ?? [];
-                  if (hours.isNotEmpty) {
-                    totalDays++;
-                    int presentHours = hours
-                        .where((h) => h['status']?.toLowerCase() == 'present')
-                        .length;
-                    int absentHours = hours.length - presentHours;
-                    if (absentHours >= 3)
-                      totalAbsentDays += 1.0;
-                    else if (absentHours >= 1)
-                      totalAbsentDays += 0.5;
-                  }
-                }
-              });
-            }
-          }
+      // Support both response shapes:
+      // Shape A: { attendance: [ {sem_even: [...]} ] }  ← direct API
+      // Shape B: { success: true, data: [ { attendance: {...} } ] }
+      Map<String, dynamic>? attendance;
+
+      if (attendanceData['attendance'] is List) {
+        // Shape A — top-level attendance list
+        final list = attendanceData['attendance'] as List;
+        if (list.isEmpty) return 0.0;
+        // Each item may have sem_even/sem_odd directly
+        return _computeAttendanceFromList(list);
+      } else if (attendanceData['success'] == true &&
+          attendanceData['data'] is List) {
+        // Shape B
+        final dataList = attendanceData['data'] as List;
+        if (dataList.isEmpty) return 0.0;
+        final att = dataList[0]['attendance'];
+        if (att is Map<String, dynamic>) {
+          return _computeAttendanceFromMap(att);
         }
       }
-      return totalDays > 0
-          ? ((totalDays - totalAbsentDays) / totalDays) * 100
-          : 0.0;
+      return 0.0;
     } catch (e) {
       return 0.0;
     }
+  }
+
+// For shape A: list of year objects with sem_even/sem_odd
+  double _computeAttendanceFromList(List list) {
+    double totalAbsent = 0.0;
+    int totalDays = 0;
+    for (final yearItem in list) {
+      for (final semKey in ['sem_even', 'sem_odd']) {
+        final semList = yearItem[semKey] as List? ?? [];
+        for (final dayObj in semList) {
+          if (dayObj is! Map<String, dynamic>) continue;
+          dayObj.forEach((dateKey, dayData) {
+            if (dayData is! Map<String, dynamic>) return;
+            final hours = dayData['hours'] as List? ?? [];
+            if (hours.isEmpty) return;
+            totalDays++;
+            final present = hours
+                .where(
+                    (h) => h['status']?.toString().toLowerCase() == 'present')
+                .length;
+            final absent = hours.length - present;
+            if (absent >= 3)
+              totalAbsent += 1.0;
+            else if (absent >= 1) totalAbsent += 0.5;
+          });
+        }
+      }
+    }
+    return totalDays > 0 ? ((totalDays - totalAbsent) / totalDays) * 100 : 0.0;
+  }
+
+// For shape B: map with sem_even/sem_odd lists
+  double _computeAttendanceFromMap(Map<String, dynamic> attendance) {
+    double totalAbsent = 0.0;
+    int totalDays = 0;
+    for (final semKey in ['sem_even', 'sem_odd']) {
+      final semList = attendance[semKey] as List? ?? [];
+      for (final dayObj in semList) {
+        if (dayObj is! Map<String, dynamic>) continue;
+        dayObj.forEach((_, dayData) {
+          if (dayData is! Map) return;
+          final hours = (dayData as Map)['hours'] as List? ?? [];
+          if (hours.isEmpty) return;
+          totalDays++;
+          final present = hours
+              .where((h) => h['status']?.toString().toLowerCase() == 'present')
+              .length;
+          final absent = hours.length - present;
+          if (absent >= 3)
+            totalAbsent += 1.0;
+          else if (absent >= 1) totalAbsent += 0.5;
+        });
+      }
+    }
+    return totalDays > 0 ? ((totalDays - totalAbsent) / totalDays) * 100 : 0.0;
   }
 
   double _calculateCurrentCGPA(List<ExamResult> examResults) {
@@ -778,217 +833,221 @@ Future<Map<String, dynamic>> _fetchAttendanceData() async {
 
   // ─── BUILD ─────────────────────────────────────────────────────────────────
 
- // In _MainPageState - add state variables
-Map<String, dynamic>? _cachedDashboardData;
+  // In _MainPageState - add state variables
+  Map<String, dynamic>? _cachedDashboardData;
 
-@override
-Widget build(BuildContext context) {
-  final _C = Provider.of<ThemeProvider>(context);
-  return Scaffold(
-    backgroundColor: _C.bg,
-    appBar: _buildFuturisticAppBar(),
-    drawer: _buildDrawer(),
-    body: FutureBuilder<Map<String, dynamic>>(
-      future: _dashboardDataFuture,
-      builder: (context, snapshot) {
-        // Use cached data if available (fixes back navigation issue)
-        if (snapshot.hasData) {
-          _cachedDashboardData = snapshot.data;
-        }
-        final data = _cachedDashboardData;
+  @override
+  Widget build(BuildContext context) {
+    final _C = Provider.of<ThemeProvider>(context);
+    return Scaffold(
+      backgroundColor: _C.bg,
+      appBar: _buildFuturisticAppBar(),
+      drawer: _buildDrawer(),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _dashboardDataFuture,
+        builder: (context, snapshot) {
+          // Use cached data if available (fixes back navigation issue)
+          if (snapshot.hasData) {
+            _cachedDashboardData = snapshot.data;
+          }
+          final data = _cachedDashboardData;
 
-        if (snapshot.connectionState == ConnectionState.waiting && data == null) {
-          return _buildLoadingState();
-        }
-        if (data != null) {
-          return FuturisticDashboard(
-            studentName: widget.studentName,
-            rollNo: widget.rollNo,
-            attendancePercentage: data['attendancePercentage'] as double? ?? 0.0,
-            currentSemester: data['currentSemester'] as int? ?? 1,
-            currentSemesterName: data['currentSemesterName'] as String? ?? 'Semester',
-            weeksCompleted: data['weeksCompleted'] as int? ?? 0,
-            totalWeeks: data['totalWeeks'] as int? ?? 16,
-            dayOrder: data['dayOrder'] as int? ?? 0,
-            isCurrentSemester: data['isCurrentSemester'] as bool? ?? true,
-            currentSemesterCourses: data['currentSemesterCourses'] as int? ?? 6,
-            examResults: data['examResults'] as List<ExamResult>? ?? [],
-            todayAttendance: data['todayAttendance'] as List<Map<String, dynamic>>? ?? [],
-            calendarData: data['calendarData'] as Map<String, dynamic>? ?? {},
-          );
-        }
-        return _buildErrorState('No data available');
-      },
-    ),
-  );
-}
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              data == null) {
+            return _buildLoadingState();
+          }
+          if (data != null) {
+            return FuturisticDashboard(
+              studentName: widget.studentName,
+              rollNo: widget.rollNo,
+              attendancePercentage:
+                  data['attendancePercentage'] as double? ?? 0.0,
+              currentSemester: data['currentSemester'] as int? ?? 1,
+              currentSemesterName:
+                  data['currentSemesterName'] as String? ?? 'Semester',
+              weeksCompleted: data['weeksCompleted'] as int? ?? 0,
+              totalWeeks: data['totalWeeks'] as int? ?? 16,
+              dayOrder: data['dayOrder'] as int? ?? 0,
+              isCurrentSemester: data['isCurrentSemester'] as bool? ?? true,
+              currentSemesterCourses:
+                  data['currentSemesterCourses'] as int? ?? 6,
+              examResults: data['examResults'] as List<ExamResult>? ?? [],
+              todayAttendance:
+                  data['todayAttendance'] as List<Map<String, dynamic>>? ?? [],
+              calendarData: data['calendarData'] as Map<String, dynamic>? ?? {},
+            );
+          }
+          return _buildErrorState('No data available');
+        },
+      ),
+    );
+  }
 
-PreferredSizeWidget _buildFuturisticAppBar() {
-  final _C = Provider.of<ThemeProvider>(context);
-  return PreferredSize(
-    preferredSize: const Size.fromHeight(64),
-    child: AnimatedBuilder(
-      animation: _appBarGlow,
-      builder: (context, _) {
-        return Container(
-          decoration: BoxDecoration(
-            color: _C.surface,
-            border: Border(
-              bottom: BorderSide(
-                color: _C.cyan.withOpacity(0.2 + _appBarGlow.value * 0.15),
-                width: 1,
+  PreferredSizeWidget _buildFuturisticAppBar() {
+    final _C = Provider.of<ThemeProvider>(context);
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(64),
+      child: AnimatedBuilder(
+        animation: _appBarGlow,
+        builder: (context, _) {
+          return Container(
+            decoration: BoxDecoration(
+              color: _C.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: _C.cyan.withOpacity(0.2 + _appBarGlow.value * 0.15),
+                  width: 1,
+                ),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: _C.cyan.withOpacity(0.06 + _appBarGlow.value * 0.04),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: _C.cyan.withOpacity(0.06 + _appBarGlow.value * 0.04),
-                blurRadius: 20,
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: SafeArea(
-            child: Row(
-              children: [
-                // Menu button
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: _C.elevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: _C.border),
-                      ),
-                      child: Icon(Icons.menu_rounded, color: _C.textHigh, size: 18),
-                    ),
-                    onPressed: () => Scaffold.of(ctx).openDrawer(),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                
-                // Logo + Title
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _C.cyan.withOpacity(0.3),
-                        blurRadius: 10,
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/bhclogo.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: _C.elevated,
-                        child: Icon(
-                          Icons.school_rounded,
-                          color: _C.cyan,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Heber ERP",
-                      style: TextStyle(
-                        color: _C.textHigh,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      "Student Portal",
-                      style: TextStyle(
-                        color: _C.cyan.withOpacity(0.8),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                
-                // Status indicator
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _C.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _C.green.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
+            child: SafeArea(
+              child: Row(
+                children: [
+                  // Menu button
+                  Builder(
+                    builder: (ctx) => IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _C.green,
-                          boxShadow: [
-                            BoxShadow(
-                              color: _C.green.withOpacity(0.6),
-                              blurRadius: 4,
-                            ),
-                          ],
+                          color: _C.elevated,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _C.border),
+                        ),
+                        child: Icon(Icons.menu_rounded,
+                            color: _C.textHigh, size: 18),
+                      ),
+                      onPressed: () => Scaffold.of(ctx).openDrawer(),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+
+                  // Logo + Title
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _C.cyan.withOpacity(0.3),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/bhclogo.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: _C.elevated,
+                          child: Icon(
+                            Icons.school_rounded,
+                            color: _C.cyan,
+                            size: 16,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 5),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        "LIVE",
+                        "Heber ERP",
                         style: TextStyle(
-                          color: _C.green,
-                          fontSize: 10,
+                          color: _C.textHigh,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        "Student Portal",
+                        style: TextStyle(
+                          color: _C.cyan.withOpacity(0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 1,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                
-                // Profile photo → tap shows animated bubble overlay
-                GestureDetector(
-                  onTap: () => _showProfileBubble(context, _C),
-                  child: StudentPhotoWidget(
-                    rollNo: widget.rollNo,
-                    size: 34,
-                    borderColor: _C.cyan,
-                    showRing: false,
-                    showGlow: false,
-                    show3DEffect: false,
+                  const Spacer(),
+
+                  // Status indicator
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _C.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _C.green.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _C.green,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _C.green.withOpacity(0.6),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          "LIVE",
+                          style: TextStyle(
+                            color: _C.green,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-              ],
+                  const SizedBox(width: 8),
+
+                  // Profile photo → tap shows animated bubble overlay
+                  GestureDetector(
+                    onTap: () => _showProfileBubble(context, _C),
+                    child: StudentPhotoWidget(
+                      rollNo: widget.rollNo,
+                      size: 34,
+                      borderColor: _C.cyan,
+                      showRing: false,
+                      showGlow: false,
+                      show3DEffect: false,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    ),
-  );
-}
-
-
+          );
+        },
+      ),
+    );
+  }
 
   void _showProfileBubble(BuildContext context, ThemeProvider _C) {
     final overlay = Overlay.of(context);
@@ -996,13 +1055,14 @@ PreferredSizeWidget _buildFuturisticAppBar() {
     final size = renderBox.size;
 
     late OverlayEntry entry;
-    entry = OverlayEntry(builder: (_) => _ProfileBubbleOverlay(
-      rollNo: widget.rollNo,
-      studentName: widget.studentName,
-      photoFuture: _photoFuture,
-      screenWidth: size.width,
-      onClose: () => entry.remove(),
-    ));
+    entry = OverlayEntry(
+        builder: (_) => _ProfileBubbleOverlay(
+              rollNo: widget.rollNo,
+              studentName: widget.studentName,
+              photoFuture: _photoFuture,
+              screenWidth: size.width,
+              onClose: () => entry.remove(),
+            ));
     overlay.insert(entry);
   }
 
@@ -1085,34 +1145,31 @@ PreferredSizeWidget _buildFuturisticAppBar() {
   // ─── DRAWER ──────────────────────────────────────────────────────────────
 
 // In _MainPageState._buildDrawer()
-Widget _buildDrawer() {
-  return CustomDrawer(
-    rollNo: widget.rollNo,
-    studentName: widget.studentName,
-    currentRoute: '/dashboard',
-    fetchDrawerData: () => _drawerDataFuture,  // return cached future!
-    getPhotoFuture: () => _photoFuture,
-    onRefreshPhoto: _refreshPhoto,
-  );
-}
+  Widget _buildDrawer() {
+    return CustomDrawer(
+      rollNo: widget.rollNo,
+      studentName: widget.studentName,
+      currentRoute: '/dashboard',
+      fetchDrawerData: () => _drawerDataFuture, // return cached future!
+      getPhotoFuture: () => _photoFuture,
+      onRefreshPhoto: _refreshPhoto,
+    );
+  }
 
   Widget _buildDrawerHeader() {
     final _C = Provider.of<ThemeProvider>(context);
     return FutureBuilder<Map<String, dynamic>>(
       future: _drawerDataFuture,
       builder: (context, snapshot) {
-        final semester = snapshot.hasData
-            ? snapshot.data!['currentSemester'] ?? 1
-            : 1;
+        final semester =
+            snapshot.hasData ? snapshot.data!['currentSemester'] ?? 1 : 1;
         final semesterName = snapshot.hasData
             ? snapshot.data!['currentSemesterName'] ?? 'Semester'
             : 'Semester';
-        final weeksCompleted = snapshot.hasData
-            ? snapshot.data!['weeksCompleted'] ?? 0
-            : 0;
-        final totalWeeks = snapshot.hasData
-            ? snapshot.data!['totalWeeks'] ?? 16
-            : 16;
+        final weeksCompleted =
+            snapshot.hasData ? snapshot.data!['weeksCompleted'] ?? 0 : 0;
+        final totalWeeks =
+            snapshot.hasData ? snapshot.data!['totalWeeks'] ?? 16 : 16;
         final courses = snapshot.hasData
             ? snapshot.data!['currentSemesterCourses'] ?? 6
             : 6;
@@ -1122,7 +1179,7 @@ Widget _buildDrawer() {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
 
         return Container(
-          padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
+          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -1289,7 +1346,12 @@ Widget _buildDrawer() {
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _drawerStat(
-                                "${_getOrdinalSemester(semester)}",
+                                snapshot.data!['usingFallback'] == true
+                                    ? (snapshot.data!['currentSemesterName']
+                                            as String)
+                                        .replaceAll(
+                                            ' Semester', '') // "Even" or "Odd"
+                                    : "${_getOrdinalSemester(semester)}",
                                 "SEM",
                                 _C.violet,
                               ),
@@ -1363,7 +1425,10 @@ Widget _buildDrawer() {
               Icons.person_rounded,
               "My Profile",
               _C.violet,
-              onTap: () => _navigateTo(ProfileScreen(rollNo: widget.rollNo,studentName: widget.studentName,)),
+              onTap: () => _navigateTo(ProfileScreen(
+                rollNo: widget.rollNo,
+                studentName: widget.studentName,
+              )),
             ),
             _navItem(
               Icons.schedule_rounded,
@@ -1438,18 +1503,18 @@ Widget _buildDrawer() {
             ),
           ]),
           _navGroup("CAMPUS", [
-          // In _buildNavSection and _buildDrawer navigation:
-_navItem(
-  Icons.event_rounded,
-  "Academic Calendar",
-  _C.amber,
-  onTap: () => _navigateTo(
-    AcademicCalendarScreen(
-      rollNo: widget.rollNo,       // ADD
-      studentName: widget.studentName, // ADD
-    ),
-  ),
-),
+            // In _buildNavSection and _buildDrawer navigation:
+            _navItem(
+              Icons.event_rounded,
+              "Academic Calendar",
+              _C.amber,
+              onTap: () => _navigateTo(
+                AcademicCalendarScreen(
+                  rollNo: widget.rollNo, // ADD
+                  studentName: widget.studentName, // ADD
+                ),
+              ),
+            ),
           ]),
           const SizedBox(height: 8),
         ],
@@ -1531,114 +1596,113 @@ _navItem(
     );
   }
 
-Widget _buildDrawerFooter() {
-  final _C = Provider.of<ThemeProvider>(context);
-  return Consumer<ThemeProvider>(
-    builder: (context, themeProvider, child) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: _C.border)),
-        ),
-        child: Column(
-          children: [
-            // Theme Toggle Button
-            Container(
-              decoration: BoxDecoration(
-                color: _C.cyan.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _C.cyan.withOpacity(0.2)),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                minLeadingWidth: 0,
-                horizontalTitleGap: 12,
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _C.cyan.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    themeProvider.isDarkMode 
-                        ? Icons.dark_mode_rounded 
-                        : Icons.light_mode_rounded,
-                    color: _C.cyan,
-                    size: 17,
-                  ),
+  Widget _buildDrawerFooter() {
+    final _C = Provider.of<ThemeProvider>(context);
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: _C.border)),
+          ),
+          child: Column(
+            children: [
+              // Theme Toggle Button
+              Container(
+                decoration: BoxDecoration(
+                  color: _C.cyan.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _C.cyan.withOpacity(0.2)),
                 ),
-                title: Text(
-                  themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
-                  style: TextStyle(
-                    color: _C.textHigh,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  minLeadingWidth: 0,
+                  horizontalTitleGap: 12,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _C.cyan.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      themeProvider.isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      color: _C.cyan,
+                      size: 17,
+                    ),
                   ),
-                ),
-                trailing: Switch(
-                  value: themeProvider.isDarkMode,
-                  onChanged: (_) => themeProvider.toggleTheme(),
-                  activeColor: _C.cyan,
-                  activeTrackColor: _C.cyan.withOpacity(0.3),
-                  inactiveThumbColor: _C.textMid,
-                  inactiveTrackColor: _C.border,
-                ),
-                onTap: () => themeProvider.toggleTheme(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Logout Button
-            Container(
-              decoration: BoxDecoration(
-                color: _C.pink.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _C.pink.withOpacity(0.2)),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                minLeadingWidth: 0,
-                horizontalTitleGap: 12,
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _C.pink.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
+                  title: Text(
+                    themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
+                    style: TextStyle(
+                      color: _C.textHigh,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.logout_rounded,
-                    color: _C.pink,
-                    size: 17,
+                  trailing: Switch(
+                    value: themeProvider.isDarkMode,
+                    onChanged: (_) => themeProvider.toggleTheme(),
+                    activeColor: _C.cyan,
+                    activeTrackColor: _C.cyan.withOpacity(0.3),
+                    inactiveThumbColor: _C.textMid,
+                    inactiveTrackColor: _C.border,
                   ),
+                  onTap: () => themeProvider.toggleTheme(),
                 ),
-                title: Text(
-                  "Logout",
-                  style: TextStyle(
-                    color: _C.pink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 8),
+              // Logout Button
+              Container(
+                decoration: BoxDecoration(
+                  color: _C.pink.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _C.pink.withOpacity(0.2)),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  minLeadingWidth: 0,
+                  horizontalTitleGap: 12,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _C.pink.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.logout_rounded,
+                      color: _C.pink,
+                      size: 17,
+                    ),
                   ),
+                  title: Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: _C.pink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  onTap: _handleLogout,
                 ),
-                onTap: _handleLogout,
               ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Heber ERP v1.0.0",
-              style: TextStyle(
-                color: _C.textLow,
-                fontSize: 11,
-                letterSpacing: 0.5,
+              const SizedBox(height: 10),
+              Text(
+                "Heber ERP v1.0.0",
+                style: TextStyle(
+                  color: _C.textLow,
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   void _navigateTo(Widget page) {
     Navigator.pop(context);
@@ -1755,7 +1819,8 @@ Widget _buildDrawerFooter() {
                         onPressed: () => Navigator.of(context).pop(true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _C.pink,
-                          foregroundColor: _C.isDarkMode ? Colors.white : _C.textHigh,
+                          foregroundColor:
+                              _C.isDarkMode ? Colors.white : _C.textHigh,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -2014,21 +2079,21 @@ class _FuturisticDashboardState extends State<FuturisticDashboard>
   }
 
   Widget _animated(int i, Widget child) => FadeTransition(
-    opacity: _stagger[i],
-    child: SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, 0.06),
-        end: Offset.zero,
-      ).animate(_stagger[i]),
-      child: child,
-    ),
-  );
+        opacity: _stagger[i],
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+          ).animate(_stagger[i]),
+          child: child,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     // Get theme provider
     final _C = Provider.of<ThemeProvider>(context);
-    
+
     // Use _C for all colors
     final cgpa = _calculateCurrentCGPA();
     final lastPerf = _getLastSemesterPerformance();
@@ -2037,11 +2102,10 @@ class _FuturisticDashboardState extends State<FuturisticDashboard>
         .where((h) => (h['status'] as String?)?.toLowerCase() == 'present')
         .length;
     final totalPeriods = widget.todayAttendance.length;
-    final todayPct = totalPeriods > 0
-        ? (presentCount / totalPeriods) * 100
-        : 0.0;
+    final todayPct =
+        totalPeriods > 0 ? (presentCount / totalPeriods) * 100 : 0.0;
     final semProgress = _getSemesterProgress();
-  
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -2072,34 +2136,34 @@ class _FuturisticDashboardState extends State<FuturisticDashboard>
 
   // ─── HERO BANNER ──────────────────────────────────────────────────────────
 
-Widget _buildHeroBanner(double progress, ThemeProvider _C) {
-  final progressPercent = (progress * 100).toStringAsFixed(0);
-  return Container(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: _C.bannerGradient,
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: _C.cyan.withOpacity(0.2)),
-      boxShadow: [
-        BoxShadow(
-          color: _C.cyan.withOpacity(0.08),
-          blurRadius: 30,
-          spreadRadius: 0,
+  Widget _buildHeroBanner(double progress, ThemeProvider _C) {
+    final progressPercent = (progress * 100).toStringAsFixed(0);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _C.bannerGradient,
         ),
-      ],
-    ),
-    child: Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: CustomPaint(
-            painter: _GridPainter(color: _C.cyan.withOpacity(0.03)),
-            size: const Size(double.infinity, 160),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _C.cyan.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: _C.cyan.withOpacity(0.08),
+            blurRadius: 30,
+            spreadRadius: 0,
           ),
-        ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: CustomPaint(
+              painter: _GridPainter(color: _C.cyan.withOpacity(0.03)),
+              size: const Size(double.infinity, 160),
+            ),
+          ),
           // Animated scan line
           AnimatedBuilder(
             animation: _scanCtrl,
@@ -2278,8 +2342,6 @@ Widget _buildHeroBanner(double progress, ThemeProvider _C) {
     );
   }
 
-
-
   Widget _chip(IconData icon, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -2308,7 +2370,8 @@ Widget _buildHeroBanner(double progress, ThemeProvider _C) {
 
   // ─── TODAY'S ATTENDANCE ───────────────────────────────────────────────────
 
-Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percentage, ThemeProvider _C){
+  Widget _buildTodayAttendance(
+      int presentCount, int totalPeriods, double percentage, ThemeProvider _C) {
     final formattedDate = DateFormat('EEEE, d MMMM').format(DateTime.now());
     final hasData = widget.todayAttendance.isNotEmpty;
 
@@ -2364,7 +2427,8 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: _C.elevated.withOpacity(0.08 + _pulseCtrl.value * 0.04),
+                  color:
+                      _C.elevated.withOpacity(0.08 + _pulseCtrl.value * 0.04),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _C.border),
                 ),
@@ -2387,13 +2451,13 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
     final statusColor = percentage == 100
         ? _C.green
         : percentage >= 60
-        ? _C.amber
-        : _C.pink;
+            ? _C.amber
+            : _C.pink;
     final statusText = percentage == 100
         ? "FULL PRESENT"
         : percentage >= 60
-        ? "PARTIAL"
-        : "LOW";
+            ? "PARTIAL"
+            : "LOW";
 
     return Container(
       decoration: BoxDecoration(
@@ -2561,7 +2625,8 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
     );
   }
 
-  Widget _attendStat(String value, String label, Color color, ThemeProvider _C) {
+  Widget _attendStat(
+      String value, String label, Color color, ThemeProvider _C) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2594,10 +2659,30 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
   Widget _buildStatsGrid(double cgpa, ThemeProvider _C) {
     final att = widget.attendancePercentage;
     final attDisplay = att > 0 ? '${att.toStringAsFixed(1)}%' : 'N/A';
-    final attColor = att >= 75 ? _C.green : att > 0 ? _C.amber : _C.textLow;
-    final attStatus = att >= 75 ? 'Good standing' : att > 0 ? 'Needs attention' : 'Loading...';
-    final cgpaColor = cgpa >= 8.0 ? _C.green : cgpa >= 6.0 ? _C.amber : cgpa > 0 ? _C.pink : _C.textLow;
-    final cgpaStatus = cgpa >= 8.0 ? 'Distinction' : cgpa >= 6.0 ? 'First class' : cgpa > 0 ? 'Pass' : 'No results yet';
+    final attColor = att >= 75
+        ? _C.cyan
+        : att > 0
+            ? _C.violet
+            : _C.textLow;
+    final attStatus = att >= 75
+        ? 'Good standing'
+        : att > 0
+            ? 'Needs attention'
+            : 'Loading...';
+    final cgpaColor = cgpa >= 8.0
+        ? _C.green
+        : cgpa >= 6.0
+            ? _C.amber
+            : cgpa > 0
+                ? _C.pink
+                : _C.textLow;
+    final cgpaStatus = cgpa >= 8.0
+        ? 'Distinction'
+        : cgpa >= 6.0
+            ? 'First class'
+            : cgpa > 0
+                ? 'Pass'
+                : 'No results yet';
 
     return GridView.count(
       shrinkWrap: true,
@@ -2610,29 +2695,43 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
         _statCardWithRing('CGPA', cgpa > 0 ? cgpa.toStringAsFixed(2) : '—',
             cgpaStatus, Icons.leaderboard_rounded, cgpaColor, _C,
             progress: cgpa > 0 ? (cgpa / 10.0).clamp(0.0, 1.0) : 0.0),
-        _statCardWithRing('Attendance', attDisplay, attStatus,
-            Icons.show_chart_rounded, attColor, _C,
+        _statCardWithRing(
+            'Attendance',
+            attDisplay,
+            attStatus,
+            Icons.bar_chart_rounded, // ← change icon too for differentiation
+            attColor,
+            _C,
             progress: att > 0 ? (att / 100.0).clamp(0.0, 1.0) : 0.0),
         _statCard(
           widget.dayOrder > 0 ? 'Day Order' : 'Progress',
-          widget.dayOrder > 0 ? 'Day ${widget.dayOrder}' : '${widget.weeksCompleted}w',
-          widget.dayOrder > 0 ? 'Today' : 'Wk ${widget.weeksCompleted}/${widget.totalWeeks}',
-          widget.dayOrder > 0 ? Icons.today_rounded : Icons.calendar_today_rounded,
-          _C.cyan, _C,
+          widget.dayOrder > 0
+              ? 'Day ${widget.dayOrder}'
+              : '${widget.weeksCompleted}w',
+          widget.dayOrder > 0
+              ? 'Today'
+              : 'Wk ${widget.weeksCompleted}/${widget.totalWeeks}',
+          widget.dayOrder > 0
+              ? Icons.today_rounded
+              : Icons.calendar_today_rounded,
+          _C.cyan,
+          _C,
         ),
         _statCard(
           'Courses',
           widget.currentSemesterCourses.toString(),
           'This semester',
           Icons.menu_book_rounded,
-          _C.violet, _C,
+          _C.violet,
+          _C,
         ),
       ],
     );
   }
 
   Widget _statCardWithRing(String title, String value, String subtitle,
-      IconData icon, Color color, ThemeProvider _C, {required double progress}) {
+      IconData icon, Color color, ThemeProvider _C,
+      {required double progress}) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -2682,18 +2781,28 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
             curve: Curves.easeOut,
             builder: (_, v, __) => Opacity(
               opacity: v,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(value,
-                    style: TextStyle(
-                      color: color, fontSize: 24, fontWeight: FontWeight.w900, height: 1,
-                      shadows: [Shadow(color: color.withOpacity(0.4), blurRadius: 8)],
-                    )),
-                const SizedBox(height: 3),
-                Text(title,
-                    style: TextStyle(color: _C.textHigh, fontSize: 11, fontWeight: FontWeight.w700)),
-                Text(subtitle,
-                    style: TextStyle(color: _C.textLow, fontSize: 9)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(value,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                          shadows: [
+                            Shadow(color: color.withOpacity(0.4), blurRadius: 8)
+                          ],
+                        )),
+                    const SizedBox(height: 3),
+                    Text(title,
+                        style: TextStyle(
+                            color: _C.textHigh,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
+                    Text(subtitle,
+                        style: TextStyle(color: _C.textLow, fontSize: 9)),
+                  ]),
             ),
           ),
         ],
@@ -2769,13 +2878,14 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
 
   // ─── QUICK ACTIONS ────────────────────────────────────────────────────────
 
- Widget _buildQuickActions(ThemeProvider _C) {
+  Widget _buildQuickActions(ThemeProvider _C) {
     final actions = [
       {
         'icon': Icons.show_chart_rounded,
         'label': 'Attendance',
         'color': _C.cyan,
-        'screen': AttendanceScreen(rollNo: widget.rollNo, studentName: widget.studentName),
+        'screen': AttendanceScreen(
+            rollNo: widget.rollNo, studentName: widget.studentName),
       },
       {
         'icon': Icons.menu_book_rounded,
@@ -2787,13 +2897,15 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
         'icon': Icons.event_seat_rounded,
         'label': 'Seating',
         'color': _C.amber,
-        'screen': SeatingArrangementPage(rollNo: widget.rollNo, studentName: widget.studentName),
+        'screen': SeatingArrangementPage(
+            rollNo: widget.rollNo, studentName: widget.studentName),
       },
       {
         'icon': Icons.people_alt_rounded,
         'label': 'Mentor',
         'color': _C.violet,
-        'screen': MentorScreen(rollNo: widget.rollNo, studentName: widget.studentName),
+        'screen': MentorScreen(
+            rollNo: widget.rollNo, studentName: widget.studentName),
       },
     ];
 
@@ -2816,12 +2928,14 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
                     pageBuilder: (_, __, ___) => screen,
                     transitionDuration: const Duration(milliseconds: 350),
                     transitionsBuilder: (_, anim, __, child) => FadeTransition(
-                      opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+                      opacity:
+                          CurvedAnimation(parent: anim, curve: Curves.easeOut),
                       child: SlideTransition(
                         position: Tween<Offset>(
                           begin: const Offset(0, 0.04),
                           end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+                        ).animate(CurvedAnimation(
+                            parent: anim, curve: Curves.easeOut)),
                         child: child,
                       ),
                     ),
@@ -2840,18 +2954,23 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
                           border: Border.all(color: color.withOpacity(0.25)),
                           boxShadow: [
                             BoxShadow(
-                              color: color.withOpacity(0.06 + _pulseCtrl.value * 0.04),
+                              color: color
+                                  .withOpacity(0.06 + _pulseCtrl.value * 0.04),
                               blurRadius: 12,
                             ),
                           ],
                         ),
-                        child: Icon(action['icon'] as IconData, color: color, size: 24),
+                        child: Icon(action['icon'] as IconData,
+                            color: color, size: 24),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       action['label'] as String,
-                      style: TextStyle(color: _C.textMid, fontSize: 10, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: _C.textMid,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -2940,7 +3059,8 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
 
   // ─── PERFORMANCE CHART ────────────────────────────────────────────────────
 
- Widget _buildPerformanceChart(Map<String, double> performance, String title, ThemeProvider _C) {
+  Widget _buildPerformanceChart(
+      Map<String, double> performance, String title, ThemeProvider _C) {
     if (performance.isEmpty) {
       return _darkCard(
         tp: _C,
@@ -2996,19 +3116,19 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
                     tooltipBgColor: _C.elevated2,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) =>
                         BarTooltipItem(
-                          '${_abbreviate(courses[groupIndex])}\n',
-                          TextStyle(
-                            color: _C.textHigh,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: '${values[groupIndex].toStringAsFixed(1)}%',
-                              style: TextStyle(color: _C.cyan),
-                            ),
-                          ],
+                      '${_abbreviate(courses[groupIndex])}\n',
+                      TextStyle(
+                        color: _C.textHigh,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '${values[groupIndex].toStringAsFixed(1)}%',
+                          style: TextStyle(color: _C.cyan),
                         ),
+                      ],
+                    ),
                   ),
                 ),
                 titlesData: FlTitlesData(
@@ -3091,9 +3211,8 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
     final words = fullName.split(' ');
     const skip = ['AND', 'OF', 'THE', 'IN', 'FOR', 'TO', 'WITH', 'BY'];
     if (words.length > 1) {
-      final meaningful = words
-          .where((w) => !skip.contains(w.toUpperCase()))
-          .toList();
+      final meaningful =
+          words.where((w) => !skip.contains(w.toUpperCase())).toList();
       if (meaningful.length > 1)
         return meaningful.map((w) => w[0].toUpperCase()).join();
       if (meaningful.isNotEmpty) {
@@ -3106,13 +3225,14 @@ Widget _buildTodayAttendance(int presentCount, int totalPeriods, double percenta
   }
 
   // ─── SCHEDULE + ACTIVITIES (placeholder) ─────────────────────────────────
-Widget _buildScheduleCard(ThemeProvider _C) {
+  Widget _buildScheduleCard(ThemeProvider _C) {
     return _darkCard(
       tp: _C,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader("TODAY'S SCHEDULE", _C.cyan, Icons.schedule_rounded, _C),
+          _sectionHeader(
+              "TODAY'S SCHEDULE", _C.cyan, Icons.schedule_rounded, _C),
           const SizedBox(height: 20),
           Center(
             child: Padding(
@@ -3145,7 +3265,8 @@ Widget _buildScheduleCard(ThemeProvider _C) {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader("RECENT ACTIVITY", _C.amber, Icons.history_rounded, _C),
+          _sectionHeader(
+              "RECENT ACTIVITY", _C.amber, Icons.history_rounded, _C),
           const SizedBox(height: 20),
           Center(
             child: Padding(
@@ -3191,7 +3312,8 @@ Widget _buildScheduleCard(ThemeProvider _C) {
     );
   }
 
-  Widget _sectionHeader(String title, Color color, IconData icon, ThemeProvider _C) {
+  Widget _sectionHeader(
+      String title, Color color, IconData icon, ThemeProvider _C) {
     return Row(
       children: [
         Container(
@@ -3217,8 +3339,6 @@ Widget _buildScheduleCard(ThemeProvider _C) {
     );
   }
 }
-
-
 
 // ─── Custom Grid Painter ─────────────────────────────────────────────────────
 
@@ -3322,8 +3442,8 @@ class ExamResult {
       gradePoint: (json['GRADEPT'] is double)
           ? json['GRADEPT']
           : (json['GRADEPT'] is int)
-          ? (json['GRADEPT'] as int).toDouble()
-          : double.tryParse(json['GRADEPT']?.toString() ?? '0') ?? 0.0,
+              ? (json['GRADEPT'] as int).toDouble()
+              : double.tryParse(json['GRADEPT']?.toString() ?? '0') ?? 0.0,
       internalId: json['id'] ?? 0,
     );
   }
@@ -3359,16 +3479,24 @@ class _ProfileBubbleOverlayState extends State<_ProfileBubbleOverlay>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
-    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0.1, -0.05), end: Offset.zero)
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 480));
+
+    // Elastic overshoot — feels physical
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _fade = CurvedAnimation(
+        parent: _ctrl, curve: const Interval(0.0, 0.4, curve: Curves.easeOut));
+    _slide = Tween<Offset>(begin: const Offset(0.05, -0.12), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+
     _ctrl.forward();
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _dismiss() async {
     await _ctrl.reverse();
@@ -3385,7 +3513,13 @@ class _ProfileBubbleOverlayState extends State<_ProfileBubbleOverlay>
         // Dim backdrop
         FadeTransition(
           opacity: _fade,
-          child: Container(color: Colors.black.withOpacity(0.35)),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(
+              sigmaX: 8 * _fade.value, // animated blur
+              sigmaY: 8 * _fade.value,
+            ),
+            child: Container(color: Colors.black.withOpacity(0.4)),
+          ),
         ),
         // Bubble positioned top-right under appbar
         Positioned(
@@ -3400,7 +3534,8 @@ class _ProfileBubbleOverlayState extends State<_ProfileBubbleOverlay>
                 alignment: Alignment.topRight,
                 child: FadeTransition(
                   opacity: _fade,
-                  child: _buildBubbleCard(_C),
+                  child: SlideTransition(
+                      position: _slide, child: _buildBubbleCard(_C)),
                 ),
               ),
             ),
@@ -3412,89 +3547,132 @@ class _ProfileBubbleOverlayState extends State<_ProfileBubbleOverlay>
 
   Widget _buildBubbleCard(ThemeProvider _C) {
     return Container(
-      width: 240,
-      padding: const EdgeInsets.all(16),
+      width: 260,
       decoration: BoxDecoration(
-        color: _C.elevated,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _C.cyan.withOpacity(0.3), width: 1.5),
+        // Multi-stop gradient border via outer container trick
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_C.cyan, _C.violet, _C.pink],
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: _C.cyan.withOpacity(0.15), blurRadius: 24, spreadRadius: 2),
-          BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 16),
+          BoxShadow(
+              color: _C.cyan.withOpacity(0.35),
+              blurRadius: 32,
+              spreadRadius: 2),
+          BoxShadow(
+              color: _C.violet.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20),
         ],
       ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        // Arrow pointer
-        Align(
-          alignment: Alignment.topRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8, bottom: 4),
-            child: CustomPaint(
-              size: const Size(12, 8),
-              painter: _ArrowPainter(color: _C.elevated, borderColor: _C.cyan.withOpacity(0.3)),
-            ),
-          ),
+      padding: const EdgeInsets.all(1.5), // gradient border thickness
+      child: Container(
+        decoration: BoxDecoration(
+          color: _C.elevated,
+          borderRadius: BorderRadius.circular(23),
         ),
-        // Photo with animated ring
-        _AnimatedRingPhoto(photoFuture: widget.photoFuture, rollNo: widget.rollNo),
-        const SizedBox(height: 12),
-        // Name
-        Text(
-          widget.studentName,
-          style: TextStyle(color: _C.textHigh, fontSize: 15, fontWeight: FontWeight.w800),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 6),
-        // Roll No badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-          decoration: BoxDecoration(
-            color: _C.cyan.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _C.cyan.withOpacity(0.3)),
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Colorful shimmer ring photo
+          _AnimatedRingPhoto(
+              photoFuture: widget.photoFuture, rollNo: widget.rollNo),
+          const SizedBox(height: 14),
+          // Gradient name text
+          ShaderMask(
+            shaderCallback: (b) => LinearGradient(
+              colors: [_C.cyan, _C.violet],
+            ).createShader(b),
+            child: Text(widget.studentName,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
           ),
-          child: Text(
-            widget.rollNo,
-            style: TextStyle(color: _C.cyan, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1),
-          ),
-        ),
-        const SizedBox(height: 10),
-        // Active badge
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const SizedBox(height: 8),
+          // Rainbow roll badge
           Container(
-            width: 6, height: 6,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: _C.green, shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: _C.green.withOpacity(0.6), blurRadius: 4)],
+              gradient: LinearGradient(colors: [
+                _C.cyan.withOpacity(0.2),
+                _C.violet.withOpacity(0.2)
+              ]),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _C.cyan.withOpacity(0.5)),
+            ),
+            child: Text(widget.rollNo,
+                style: TextStyle(
+                    color: _C.cyan,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2)),
+          ),
+          const SizedBox(height: 10),
+          // Animated status dot row
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            AnimatedBuilder(
+              animation: _ctrl,
+              builder: (_, __) => Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _C.green,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _C.green.withOpacity(0.6 + _ctrl.value * 0.3),
+                      blurRadius: 8 + _ctrl.value * 6,
+                    )
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text('Active Student',
+                style: TextStyle(color: _C.textMid, fontSize: 12)),
+          ]),
+          const SizedBox(height: 14),
+          // Gradient divider
+          Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  Colors.transparent,
+                  _C.cyan.withOpacity(0.4),
+                  Colors.transparent
+                ]),
+              )),
+          const SizedBox(height: 12),
+          // Close button with gradient border
+          GestureDetector(
+            onTap: _dismiss,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  _C.cyan.withOpacity(0.15),
+                  _C.violet.withOpacity(0.15)
+                ]),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _C.cyan.withOpacity(0.3)),
+              ),
+              child: Text('Close',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: _C.cyan,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
             ),
           ),
-          const SizedBox(width: 5),
-          Text('Active Student', style: TextStyle(color: _C.textMid, fontSize: 11)),
         ]),
-        const SizedBox(height: 12),
-        Divider(height: 1, color: _C.border),
-        const SizedBox(height: 10),
-        // Close button
-        GestureDetector(
-          onTap: _dismiss,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: _C.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _C.border),
-            ),
-            child: Text(
-              'Close',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _C.textMid, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ]),
+      ),
     );
   }
 }
@@ -3503,7 +3681,8 @@ class _AnimatedRingPhoto extends StatefulWidget {
   final Future<String?> photoFuture;
   final String rollNo;
   const _AnimatedRingPhoto({required this.photoFuture, required this.rollNo});
-  @override State<_AnimatedRingPhoto> createState() => _AnimatedRingPhotoState();
+  @override
+  State<_AnimatedRingPhoto> createState() => _AnimatedRingPhotoState();
 }
 
 class _AnimatedRingPhotoState extends State<_AnimatedRingPhoto>
@@ -3512,9 +3691,16 @@ class _AnimatedRingPhotoState extends State<_AnimatedRingPhoto>
   @override
   void initState() {
     super.initState();
-    _ring = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
+    _ring =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..repeat();
   }
-  @override void dispose() { _ring.dispose(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _ring.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3542,10 +3728,12 @@ class _AnimatedRingPhotoState extends State<_AnimatedRingPhoto>
           ),
           padding: const EdgeInsets.all(2.5),
           child: Container(
-            decoration: BoxDecoration(shape: BoxShape.circle, color: _C.elevated),
+            decoration:
+                BoxDecoration(shape: BoxShape.circle, color: _C.elevated),
             child: ClipOval(
               child: snap.hasData && snap.data != null
-                  ? Image.network(snap.data!, fit: BoxFit.cover,
+                  ? Image.network(snap.data!,
+                      fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _placeholder(_C))
                   : _placeholder(_C),
             ),
@@ -3556,9 +3744,9 @@ class _AnimatedRingPhotoState extends State<_AnimatedRingPhoto>
   }
 
   Widget _placeholder(ThemeProvider _C) => Container(
-    color: _C.surface,
-    child: Icon(Icons.person_rounded, color: _C.textLow, size: 36),
-  );
+        color: _C.surface,
+        child: Icon(Icons.person_rounded, color: _C.textLow, size: 36),
+      );
 }
 
 class _ArrowPainter extends CustomPainter {
@@ -3568,8 +3756,13 @@ class _ArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = borderColor..strokeWidth = 1.5..style = PaintingStyle.stroke;
-    final fill = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = borderColor
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final path = Path()
       ..moveTo(size.width / 2 - 6, size.height)
       ..lineTo(size.width / 2, 0)
@@ -3578,7 +3771,9 @@ class _ArrowPainter extends CustomPainter {
     canvas.drawPath(path, fill);
     canvas.drawPath(path, paint);
   }
-  @override bool shouldRepaint(_) => false;
+
+  @override
+  bool shouldRepaint(_) => false;
 }
 
 // ── Arc progress painter for stat cards ──────────────────────────────────────
@@ -3592,14 +3787,34 @@ class _ArcPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const startAngle = -2.4;
     const sweepMax = 4.8;
-    final rect = Rect.fromCircle(center: Offset(size.width / 2, size.height / 2), radius: size.width / 2 - 3);
-    canvas.drawArc(rect, startAngle, sweepMax, false,
-        Paint()..color = trackColor..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+    final rect = Rect.fromCircle(
+        center: Offset(size.width / 2, size.height / 2),
+        radius: size.width / 2 - 3);
+    canvas.drawArc(
+        rect,
+        startAngle,
+        sweepMax,
+        false,
+        Paint()
+          ..color = trackColor
+          ..strokeWidth = 3
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round);
     if (progress > 0) {
-      canvas.drawArc(rect, startAngle, sweepMax * progress, false,
-          Paint()..color = color..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round
+      canvas.drawArc(
+          rect,
+          startAngle,
+          sweepMax * progress,
+          false,
+          Paint()
+            ..color = color
+            ..strokeWidth = 3
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round
             ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2));
     }
   }
-  @override bool shouldRepaint(_ArcPainter o) => o.progress != progress;
+
+  @override
+  bool shouldRepaint(_ArcPainter o) => o.progress != progress;
 }

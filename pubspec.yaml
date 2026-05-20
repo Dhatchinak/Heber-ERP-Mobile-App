@@ -25,11 +25,15 @@ dependencies:
   
   # Additional
   image_picker: ^1.0.5
-  path_provider: ^2.1.1
   printing: ^5.14.3
   pdf: ^3.10.8
   http_parser: ^4.0.2
   path: ^1.9.0
+  share_plus: ^12.0.2
+  path_provider: ^2.1.2
+  open_file: ^3.3.2
+  file_picker: ^8.0.0   # add this line
+
 
 dev_dependencies:
   flutter_test:
