@@ -28,7 +28,7 @@ class LeaveApplication {
   final String reason;
   final String? supportingDocument;
   final int durationDays;
-  final List<dynamic> approvals; // ← List not Map
+  final List<dynamic> approvals;
   final DateTime appliedDate;
 
   LeaveApplication({
@@ -206,150 +206,136 @@ class LeaveService {
     }
   }
 
-  /// Submits leave as multipart/form-data so document file is uploaded properly.
-static Future<Map<String, dynamic>> applyLeave({
-  required String rollNo,
-  required String leaveType,
-  required DateTime startDate,
-  required DateTime endDate,
-  required String reason,
-  File? documentFile,
-}) async {
-  try {
-    final uri = Uri.parse('$baseUrl/apply');
-    final startStr = DateFormat('yyyy-MM-dd').format(startDate);
-    final endStr = DateFormat('yyyy-MM-dd').format(endDate);
-    final rollNoInt = int.tryParse(rollNo) ?? rollNo;
+  static Future<Map<String, dynamic>> applyLeave({
+    required String rollNo,
+    required String leaveType,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String reason,
+    File? documentFile,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/apply');
+      final startStr = DateFormat('yyyy-MM-dd').format(startDate);
+      final endStr = DateFormat('yyyy-MM-dd').format(endDate);
+      final rollNoInt = int.tryParse(rollNo) ?? rollNo;
 
-    // ── No file → plain JSON (confirmed working) ──────────────────────
-    if (documentFile == null) {
-      final response = await http.post(
-        uri,
-        headers: {
-          'Referer': 'http://117.232.64.75',
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'roll_no': rollNoInt,
-          'leaveType': leaveType,
-          'startDate': startStr,
-          'endDate': endStr,
-          'reason': reason,
-        }),
-      ).timeout(const Duration(seconds: 30));
+      if (documentFile == null) {
+        final response = await http.post(
+          uri,
+          headers: {
+            'Referer': 'http://117.232.64.75',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'roll_no': rollNoInt,
+            'leaveType': leaveType,
+            'startDate': startStr,
+            'endDate': endStr,
+            'reason': reason,
+          }),
+        ).timeout(const Duration(seconds: 30));
 
-      debugPrint('📡 ${response.statusCode} | ${response.body}');
-      return _parseResponse(response.statusCode, response.body);
-    }
-
-    // ── Has file → multipart ───────────────────────────────────────────
-    final request = http.MultipartRequest('POST', uri);
-    request.headers['Referer'] = 'http://117.232.64.75';
-    request.headers['Accept'] = 'application/json';
-
-    // roll_no as integer string (no quotes in form field isn't possible,
-    // but backend should parseInt — send clean digits only)
-    request.fields['roll_no'] = rollNo;
-    request.fields['leaveType'] = leaveType;
-    request.fields['startDate'] = startStr;
-    request.fields['endDate'] = endStr;
-    request.fields['reason'] = reason;
-
-    final ext = p.extension(documentFile.path).toLowerCase().replaceFirst('.', '');
-    request.files.add(await http.MultipartFile.fromPath(
-      'supportingDocument',
-      documentFile.path,
-      contentType: MediaType.parse(_mimeType(ext)),
-    ));
-
-    debugPrint('🚀 Multipart POST | fields: ${request.fields} | file: ${documentFile.path}');
-
-    final streamed = await request.send().timeout(const Duration(seconds: 30));
-    final body = await streamed.stream.bytesToString();
-    debugPrint('📡 ${streamed.statusCode} | $body');
-
-    return _parseResponse(streamed.statusCode, body);
-
-  } on TimeoutException {
-    return {'success': false, 'message': 'Request timed out'};
-  } on SocketException {
-    return {'success': false, 'message': 'No internet connection'};
-  } catch (e) {
-    debugPrint('❌ $e');
-    return {'success': false, 'message': 'Error: $e'};
-  }
-}
-  // static String _mimeType(String ext) {
-  //   switch (ext) {
-  //     case 'pdf': return 'application/pdf';
-  //     case 'png': return 'image/png';
-  //     case 'jpg': case 'jpeg': return 'image/jpeg';
-  //     case 'doc': return 'application/msword';
-  //     case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  //     default: return 'application/octet-stream';
-  //   }
-  // }
-
-static Future<List<LeaveApplication>> getLeaveApplications(String rollNo) async {
-  try {
-    final response = await http
-        .get(Uri.parse('$baseUrl/$rollNo'), headers: _headers)
-        .timeout(const Duration(seconds: 12));
-    debugPrint('📡 GET leaves ${response.statusCode} | ${response.body}');
-    if (response.statusCode == 200) {
-      final result = json.decode(response.body);
-      List<dynamic> list = [];
-      if (result is List) {
-        list = result;
-      } else if (result['leaves'] is List) {
-        list = result['leaves'];
-      } else if (result['data'] is List) {
-        list = result['data'];
+        debugPrint('📡 ${response.statusCode} | ${response.body}');
+        return _parseResponse(response.statusCode, response.body);
       }
-      return list.map((e) {
-        try { return LeaveApplication.fromJson(e); }
-        catch (err) { debugPrint('Parse error: $err | $e'); return null; }
-      }).whereType<LeaveApplication>().toList();
-    }
-    return [];
-  } catch (e) {
-    debugPrint('Error fetching applications: $e');
-    return [];
-  }
-}
-  
-static Map<String, dynamic> _parseResponse(int statusCode, String body) {
-  if (body.isEmpty) return {'success': false, 'message': 'Empty response'};
-  try {
-    final decoded = json.decode(body);
-    if (statusCode == 200 || statusCode == 201) {
-      return {
-        'success': true,
-        'message': decoded['message'] ?? 'Leave applied successfully!',
-        'data': decoded,
-      };
-    }
-    return {
-      'success': false,
-      'message': decoded['message'] ?? decoded['error'] ?? 'Error $statusCode',
-    };
-  } catch (_) {
-    return {'success': false, 'message': 'Unexpected response ($statusCode)'};
-  }
-}
 
-static String _mimeType(String ext) {
-  switch (ext) {
-    case 'pdf': return 'application/pdf';
-    case 'png': return 'image/png';
-    case 'jpg':
-    case 'jpeg': return 'image/jpeg';
-    case 'doc': return 'application/msword';
-    case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    default: return 'application/octet-stream';
+      final request = http.MultipartRequest('POST', uri);
+      request.headers['Referer'] = 'http://117.232.64.75';
+      request.headers['Accept'] = 'application/json';
+
+      request.fields['roll_no'] = rollNo;
+      request.fields['leaveType'] = leaveType;
+      request.fields['startDate'] = startStr;
+      request.fields['endDate'] = endStr;
+      request.fields['reason'] = reason;
+
+      final ext = p.extension(documentFile.path).toLowerCase().replaceFirst('.', '');
+      request.files.add(await http.MultipartFile.fromPath(
+        'supportingDocument',
+        documentFile.path,
+        contentType: MediaType.parse(_mimeType(ext)),
+      ));
+
+      debugPrint('🚀 Multipart POST | fields: ${request.fields} | file: ${documentFile.path}');
+
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final body = await streamed.stream.bytesToString();
+      debugPrint('📡 ${streamed.statusCode} | $body');
+
+      return _parseResponse(streamed.statusCode, body);
+
+    } on TimeoutException {
+      return {'success': false, 'message': 'Request timed out'};
+    } on SocketException {
+      return {'success': false, 'message': 'No internet connection'};
+    } catch (e) {
+      debugPrint('❌ $e');
+      return {'success': false, 'message': 'Error: $e'};
+    }
   }
-}}
+
+  static Future<List<LeaveApplication>> getLeaveApplications(String rollNo) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/$rollNo'), headers: _headers)
+          .timeout(const Duration(seconds: 12));
+      debugPrint('📡 GET leaves ${response.statusCode} | ${response.body}');
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body);
+        List<dynamic> list = [];
+        if (result is List) {
+          list = result;
+        } else if (result['leaves'] is List) {
+          list = result['leaves'];
+        } else if (result['data'] is List) {
+          list = result['data'];
+        }
+        return list.map((e) {
+          try { return LeaveApplication.fromJson(e); }
+          catch (err) { debugPrint('Parse error: $err | $e'); return null; }
+        }).whereType<LeaveApplication>().toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching applications: $e');
+      return [];
+    }
+  }
+  
+  static Map<String, dynamic> _parseResponse(int statusCode, String body) {
+    if (body.isEmpty) return {'success': false, 'message': 'Empty response'};
+    try {
+      final decoded = json.decode(body);
+      if (statusCode == 200 || statusCode == 201) {
+        return {
+          'success': true,
+          'message': decoded['message'] ?? 'Leave applied successfully!',
+          'data': decoded,
+        };
+      }
+      return {
+        'success': false,
+        'message': decoded['message'] ?? decoded['error'] ?? 'Error $statusCode',
+      };
+    } catch (_) {
+      return {'success': false, 'message': 'Unexpected response ($statusCode)'};
+    }
+  }
+
+  static String _mimeType(String ext) {
+    switch (ext) {
+      case 'pdf': return 'application/pdf';
+      case 'png': return 'image/png';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'doc': return 'application/msword';
+      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      default: return 'application/octet-stream';
+    }
+  }
+}
 
 // ─── PDF GENERATOR ───────────────────────────────────────────────────────────
 
@@ -368,6 +354,7 @@ class LeavePdfGenerator {
     final shortFmt = DateFormat('dd/MM/yyyy');
     final days = toDate.difference(fromDate).inDays + 1;
 
+    // Load fonts with fallbacks
     pw.Font? regularFont;
     pw.Font? boldFont;
     try {
@@ -375,7 +362,11 @@ class LeavePdfGenerator {
       final boldData = await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
       regularFont = pw.Font.ttf(regularData);
       boldFont = pw.Font.ttf(boldData);
-    } catch (_) {}
+    } catch (_) {
+      // Fallback to built-in fonts
+      regularFont = pw.Font.helvetica();
+      boldFont = pw.Font.helveticaBold();
+    }
 
     final baseStyle = pw.TextStyle(font: regularFont, fontSize: 11);
     final boldStyle = pw.TextStyle(font: boldFont, fontSize: 11, fontWeight: pw.FontWeight.bold);
@@ -392,7 +383,6 @@ class LeavePdfGenerator {
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // ── Header ──
             pw.Container(
               padding: const pw.EdgeInsets.all(16),
               decoration: pw.BoxDecoration(
@@ -436,7 +426,6 @@ class LeavePdfGenerator {
             ),
             pw.SizedBox(height: 20),
 
-            // ── Date & To ──
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -450,7 +439,6 @@ class LeavePdfGenerator {
             _toAddressBlock(boldStyle, baseStyle, config),
             pw.SizedBox(height: 16),
 
-            // ── Subject ──
             pw.Row(children: [
               pw.Text('Sub: ', style: boldStyle),
               pw.Expanded(child: pw.Text(
@@ -460,7 +448,6 @@ class LeavePdfGenerator {
             ]),
             pw.SizedBox(height: 16),
 
-            // ── Salutation ──
             pw.Text('Respected Sir/Madam,', style: baseStyle),
             pw.SizedBox(height: 10),
             pw.Text(
@@ -482,7 +469,6 @@ class LeavePdfGenerator {
             pw.Text('Yours obediently,', style: baseStyle),
             pw.SizedBox(height: 24),
 
-            // ── Applicant Sign ──
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -503,7 +489,6 @@ class LeavePdfGenerator {
             pw.Divider(color: PdfColors.grey300),
             pw.SizedBox(height: 12),
 
-            // ── Approval Section ──
             pw.Text('FOR OFFICE USE ONLY', style: boldStyle.copyWith(
               color: PdfColors.grey700, fontSize: 9, letterSpacing: 1.2)),
             pw.SizedBox(height: 14),
@@ -735,81 +720,70 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
   LeaveTypeConfig get _config => getLeaveConfig(_selectedLeaveType)!;
   Student? get _student => widget.studentData;
 
-Future<void> _submitApplication() async {
-  if (!_formKey.currentState!.validate()) return;
-  if (_fromDate == null || _toDate == null) {
-    _snack('Please select both start and end dates', error: true); return;
-  }
-  if (_fromDate!.isAfter(_toDate!)) {
-    _snack('End date cannot be before start date', error: true); return;
-  }
-  if (_config.requiresDocument && _selectedDocument == null) {
-    _snack('Please upload a supporting document', error: true); return;
-  }
+  Future<void> _submitApplication() async {
+    // Dismiss keyboard first to prevent UI jank
+    FocusScope.of(context).unfocus();
+    await Future.delayed(const Duration(milliseconds: 100));
 
-  setState(() => _isLoading = true);
-
-  final result = await LeaveService.applyLeave(
-    rollNo: widget.rollNo,
-    leaveType: _selectedLeaveType,
-    startDate: _fromDate!,
-    endDate: _toDate!,
-    reason: _reason,
-    documentFile: _selectedDocument,
-  );
-
-  setState(() => _isLoading = false);
-
-  if (result['success'] == true) {
-    _snack(result['message'] ?? 'Leave applied successfully!', error: false);
-    
-    // ── capture values before resetForm clears them ──
-    final capturedFrom = _fromDate;
-    final capturedTo = _toDate;
-    final capturedReason = _reason;
-    final capturedType = _selectedLeaveType;
-    
-    _resetForm(); // clears _fromDate, _toDate etc.
-
-    if (mounted && _student != null && capturedFrom != null && capturedTo != null) {
-      await Future.delayed(const Duration(milliseconds: 400));
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (_) => _PrintSuccessDialog(
-            student: _student!,
-            leaveType: capturedType,
-            fromDate: capturedFrom,
-            toDate: capturedTo,
-            reason: capturedReason,
-          ),
-        );
-      }
+    if (!_formKey.currentState!.validate()) return;
+    if (_fromDate == null || _toDate == null) {
+      _snack('Please select both start and end dates', error: true); return;
     }
-  } else {
-    _snack(result['message'] ?? 'Failed to apply leave', error: true);
-  }
-}
+    if (_fromDate!.isAfter(_toDate!)) {
+      _snack('End date cannot be before start date', error: true); return;
+    }
+    if (_config.requiresDocument && _selectedDocument == null) {
+      _snack('Please upload a supporting document', error: true); return;
+    }
 
-  void _showPrintSuccess() {
-    showDialog(
-      context: context,
-      builder: (_) => _PrintSuccessDialog(
-        student: _student!,
-        leaveType: _selectedLeaveType,
-        fromDate: _fromDate!,
-        toDate: _toDate!,
-        reason: _reason,
-      ),
+    setState(() => _isLoading = true);
+
+    final result = await LeaveService.applyLeave(
+      rollNo: widget.rollNo,
+      leaveType: _selectedLeaveType,
+      startDate: _fromDate!,
+      endDate: _toDate!,
+      reason: _reason,
+      documentFile: _selectedDocument,
     );
+
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      _snack(result['message'] ?? 'Leave applied successfully!', error: false);
+      
+      final capturedFrom = _fromDate;
+      final capturedTo = _toDate;
+      final capturedReason = _reason;
+      final capturedType = _selectedLeaveType;
+      
+      _resetForm();
+
+      if (mounted && _student != null && capturedFrom != null && capturedTo != null) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _PrintSuccessDialog(
+              student: _student!,
+              leaveType: capturedType,
+              fromDate: capturedFrom,
+              toDate: capturedTo,
+              reason: capturedReason,
+            ),
+          );
+        }
+      }
+    } else {
+      _snack(result['message'] ?? 'Failed to apply leave', error: true);
+    }
   }
 
   Future<void> _pickDocument() async {
     try {
       setState(() => _isUploading = true);
       final picker = ImagePicker();
-      // Allow any file type via file_picker for doc/pdf support
-      // Using image_picker as fallback for images only
       final XFile? file = await picker.pickImage(
         source: ImageSource.gallery, maxWidth: 1200, maxHeight: 1200, imageQuality: 80,
       );
@@ -851,37 +825,40 @@ Future<void> _submitApplication() async {
   @override
   Widget build(BuildContext context) {
     final c = Provider.of<ThemeProvider>(context);
-    return Form(
-      key: _formKey,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStudentCard(c),
-            const SizedBox(height: 24),
-            _sectionLabel(c, 'Leave Type'),
-            const SizedBox(height: 12),
-            ...leaveTypes.map((t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _leaveTypeCard(c, t),
-            )),
-            const SizedBox(height: 24),
-            _sectionLabel(c, 'Leave Period'),
-            const SizedBox(height: 12),
-            _buildDateRow(c),
-            const SizedBox(height: 24),
-            _sectionLabel(c, 'Reason for Leave'),
-            const SizedBox(height: 12),
-            _buildReasonField(c),
-            if (_config.requiresDocument) ...[
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStudentCard(c),
               const SizedBox(height: 24),
-              _buildDocumentSection(c),
+              _sectionLabel(c, 'Leave Type'),
+              const SizedBox(height: 12),
+              ...leaveTypes.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _leaveTypeCard(c, t),
+              )),
+              const SizedBox(height: 24),
+              _sectionLabel(c, 'Leave Period'),
+              const SizedBox(height: 12),
+              _buildDateRow(c),
+              const SizedBox(height: 24),
+              _sectionLabel(c, 'Reason for Leave'),
+              const SizedBox(height: 12),
+              _buildReasonField(c),
+              if (_config.requiresDocument) ...[
+                const SizedBox(height: 24),
+                _buildDocumentSection(c),
+              ],
+              const SizedBox(height: 32),
+              _buildActionButtons(c),
+              const SizedBox(height: 20),
             ],
-            const SizedBox(height: 32),
-            _buildActionButtons(c),
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     );
@@ -994,7 +971,6 @@ Future<void> _submitApplication() async {
               ],
             ]),
           ])),
-          // Signatures preview
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             ...t.signatures.map((s) => Text('· $s', style: TextStyle(fontSize: 9, color: c.textLow))),
           ]),
@@ -1053,6 +1029,7 @@ Future<void> _submitApplication() async {
       const SizedBox(height: 6),
       GestureDetector(
         onTap: () async {
+          FocusScope.of(context).unfocus();
           final picked = await showDatePicker(
             context: context,
             initialDate: date ?? DateTime.now(),
@@ -1232,139 +1209,140 @@ class _PrintSuccessDialogState extends State<_PrintSuccessDialog> {
       backgroundColor: c.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 72, height: 72,
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1), shape: BoxShape.circle,
-              border: Border.all(color: Colors.green.withOpacity(0.3), width: 2),
-            ),
-            child: const Icon(Icons.check_circle_rounded, color: Colors.green, size: 40),
-          ),
-          const SizedBox(height: 14),
-          Text('Leave Applied!',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.textHigh)),
-          const SizedBox(height: 6),
-          Text('Your ${config.label} has been submitted for approval.',
-            style: TextStyle(fontSize: 13, color: c.textMid), textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-
-          // Summary card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withOpacity(0.2)),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(config.icon, size: 12, color: Colors.white),
-                    const SizedBox(width: 5),
-                    Text(config.label, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
-                  ]),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(width: 5, height: 5,
-                      decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                    const Text('Submitted', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-              ]),
-              const SizedBox(height: 14),
-              Divider(color: c.border, height: 1),
-              const SizedBox(height: 12),
-              _row(c, Icons.person_rounded,       'Student',    widget.student.name),
-              _row(c, Icons.badge_rounded,         'Roll No',    widget.student.rollNo),
-              _row(c, Icons.school_rounded,        'Department', widget.student.deptName),
-              _row(c, Icons.date_range_rounded,    'Period',
-                '${fmt.format(widget.fromDate)} → ${fmt.format(widget.toDate)}'),
-              _row(c, Icons.timelapse_rounded,     'Duration',   '$days day${days > 1 ? "s" : ""}'),
-              _row(c, Icons.notes_rounded,         'Reason',
-                widget.reason.length > 50 ? '${widget.reason.substring(0, 50)}…' : widget.reason),
-            ]),
-          ),
-          const SizedBox(height: 14),
-
-          // Signatures
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: c.bg, borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: c.border),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.approval_rounded, size: 14, color: c.textLow),
-                const SizedBox(width: 6),
-                Text('Requires signatures from:',
-                  style: TextStyle(fontSize: 11, color: c.textLow, fontWeight: FontWeight.w600)),
-              ]),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 6,
-                children: config.signatures.map((s) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.withOpacity(0.3)),
-                  ),
-                  child: Text(s, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-                )).toList()),
-            ]),
-          ),
-          const SizedBox(height: 20),
-
-          Row(children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(color: c.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: Text('Close', style: TextStyle(color: c.textMid, fontWeight: FontWeight.w600)),
+      child: FocusScope(
+        node: FocusScopeNode(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1), shape: BoxShape.circle,
+                border: Border.all(color: Colors.green.withOpacity(0.3), width: 2),
               ),
+              child: const Icon(Icons.check_circle_rounded, color: Colors.green, size: 40),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _isGenerating ? null : () => _downloadPdf(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: color,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: _isGenerating
-                    ? const SizedBox(height: 18, width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white)))
-                    : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(Icons.download_rounded, size: 16, color: Colors.white),
-                        SizedBox(width: 6),
-                        Text('Download PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                      ]),
+            const SizedBox(height: 14),
+            Text('Leave Applied!',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.textHigh)),
+            const SizedBox(height: 6),
+            Text('Your ${config.label} has been submitted for approval.',
+              style: TextStyle(fontSize: 13, color: c.textMid), textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color.withOpacity(0.2)),
               ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(config.icon, size: 12, color: Colors.white),
+                      const SizedBox(width: 5),
+                      Text(config.label, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Container(width: 5, height: 5,
+                        decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                      const SizedBox(width: 4),
+                      const Text('Submitted', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                Divider(color: c.border, height: 1),
+                const SizedBox(height: 12),
+                _row(c, Icons.person_rounded,       'Student',    widget.student.name),
+                _row(c, Icons.badge_rounded,         'Roll No',    widget.student.rollNo),
+                _row(c, Icons.school_rounded,        'Department', widget.student.deptName),
+                _row(c, Icons.date_range_rounded,    'Period',
+                  '${fmt.format(widget.fromDate)} → ${fmt.format(widget.toDate)}'),
+                _row(c, Icons.timelapse_rounded,     'Duration',   '$days day${days > 1 ? "s" : ""}'),
+                _row(c, Icons.notes_rounded,         'Reason',
+                  widget.reason.length > 50 ? '${widget.reason.substring(0, 50)}…' : widget.reason),
+              ]),
             ),
+            const SizedBox(height: 14),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: c.bg, borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: c.border),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.approval_rounded, size: 14, color: c.textLow),
+                  const SizedBox(width: 6),
+                  Text('Requires signatures from:',
+                    style: TextStyle(fontSize: 11, color: c.textLow, fontWeight: FontWeight.w600)),
+                ]),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 6,
+                  children: config.signatures.map((s) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withOpacity(0.3)),
+                    ),
+                    child: Text(s, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+                  )).toList()),
+              ]),
+            ),
+            const SizedBox(height: 20),
+
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: c.border),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text('Close', style: TextStyle(color: c.textMid, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isGenerating ? null : () => _downloadPdf(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: _isGenerating
+                      ? const SizedBox(height: 18, width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white)))
+                      : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.download_rounded, size: 16, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('Download PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                        ]),
+                ),
+              ),
+            ]),
           ]),
-        ]),
+        ),
       ),
     );
   }
@@ -1407,7 +1385,7 @@ class _PrintSuccessDialogState extends State<_PrintSuccessDialog> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed: $e'),
+          content: Text('Failed to generate PDF: $e'),
           backgroundColor: const Color(0xFFDC2626),
         ));
       }
@@ -1428,6 +1406,7 @@ class MyApplicationsScreen extends StatefulWidget {
   @override
   State<MyApplicationsScreen> createState() => _MyApplicationsScreenState();
 }
+
 class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
   List<LeaveApplication> _all = [];
   bool _isLoading = true;
@@ -1451,7 +1430,6 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
     }
   }
 
-  // ← Fixed: List<dynamic> instead of Map
   String _status(List<dynamic> approvals) {
     if (approvals.isEmpty) return 'Pending';
     if (approvals.any((a) => a['status'] == 'rejected')) return 'Rejected';
