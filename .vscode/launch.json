@@ -1,15 +1,25 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-  "name": "Flutter Mobile",
-  "request": "launch",
-  "type": "dart",
-  "flutterMode": "debug"
-  // no "deviceId" = picks connected mobile device
-}
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "bhc_erp (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "bhc_erp (profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "bhc_erp (release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release"
+    }
+  ]
 }

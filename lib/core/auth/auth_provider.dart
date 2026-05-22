@@ -1,35 +1,45 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_type.dart';
+import '../utils/api_constants.dart';
 
-// Keep UserRole as an alias so existing Staff code compiles without changes
+// UserRole alias kept for backward compatibility with existing Staff screens
 enum UserRole { staff, hod, admin }
+
+// Keys stored in SharedPreferences — only these are touched on logout
+class _PrefKeys {
+  static const accessToken  = 'auth_access_token';
+  static const userData     = 'auth_user_data';
+  static const userType     = 'auth_user_type';
+  static const rollNo       = 'auth_roll_no';
+  static const studentName  = 'auth_student_name';
+  static const studentDob   = 'auth_student_dob';
+}
 
 class AuthProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
-  bool _isLoading = false;
+  bool _isLoading       = false;
   String? _accessToken;
-  String? _refreshToken;
   Map<String, dynamic>? _userData;
   UserType _userType = UserType.unknown;
 
-  // Student-specific fields
+  // Student fields
   String? _studentRollNo;
   String? _studentName;
   String? _studentDob;
 
   // ── Getters ──────────────────────────────────────────────────────────────
   bool get isAuthenticated => _isAuthenticated;
-  bool get isLoading => _isLoading;
-  String? get accessToken => _accessToken;
-  String? get refreshToken => _refreshToken;
+  bool get isLoading       => _isLoading;
+  String? get accessToken  => _accessToken;
   Map<String, dynamic>? get userData => _userData;
-  UserType get userType => _userType;
+  UserType get userType    => _userType;
   String? get studentRollNo => _studentRollNo;
-  String? get studentName => _studentName;
-  String? get studentDob => _studentDob;
+  String? get studentName   => _studentName;
+  String? get studentDob    => _studentDob;
 
   /// Convenience getter used by Staff screens
   UserRole get userRole {
@@ -39,20 +49,6 @@ class AuthProvider extends ChangeNotifier {
       default:             return UserRole.staff;
     }
   }
-
-  // ── API config (used by Staff login) ─────────────────────────────────────
-  static const List<String> _baseUrls = [
-    'http://117.232.64.75/api',
-    'http://117.232.64.75',
-    'http://10.240.151.162/api',
-    'http://10.240.151.162',
-  ];
-
-  static const Map<String, String> _apiHeaders = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'User-Agent': 'BHC-ERP-Mobile/1.0',
-  };
 
   // ── Init ─────────────────────────────────────────────────────────────────
   Future<void> init() async {
@@ -66,74 +62,65 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _loadSavedAuth() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedToken    = prefs.getString('access_token');
-      final savedUserData = prefs.getString('user_data');
-      final savedType     = prefs.getString('user_type');
-      _studentRollNo = prefs.getString('rollNo');
-      _studentName   = prefs.getString('studentName');
-      _studentDob    = prefs.getString('dob');
+      final savedToken    = prefs.getString(_PrefKeys.accessToken);
+      final savedUserData = prefs.getString(_PrefKeys.userData);
+      final savedType     = prefs.getString(_PrefKeys.userType);
 
-      _userType = UserTypeExtension.fromString(savedType ?? 'unknown');
+      _studentRollNo = prefs.getString(_PrefKeys.rollNo);
+      _studentName   = prefs.getString(_PrefKeys.studentName);
+      _studentDob    = prefs.getString(_PrefKeys.studentDob);
+      _userType      = UserTypeExtension.fromString(savedType ?? 'unknown');
 
       if (savedToken != null && savedToken.isNotEmpty && savedUserData != null) {
         try {
-          _accessToken = savedToken;
-          _userData = json.decode(savedUserData) as Map<String, dynamic>;
+          _accessToken     = savedToken;
+          _userData        = json.decode(savedUserData) as Map<String, dynamic>;
           _isAuthenticated = true;
-        } catch (_) {
-          await _clearPrefs();
+        } catch (e) {
+          debugPrint('AuthProvider: failed to parse saved session — $e');
+          await _clearAuthPrefs();
         }
       } else if (_studentRollNo != null && _studentRollNo!.isNotEmpty) {
         _isAuthenticated = true;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('AuthProvider: init error — $e');
+    }
   }
 
-  // ── Staff login (DOB) ─────────────────────────────────────────────────────
+  // ── Staff DOB login ───────────────────────────────────────────────────────
+  // NOTE: DOB comparison is performed server-side via a POST to staffLogin.
+  // If your backend doesn't have a dedicated auth endpoint yet, use staffLogin
+  // and pass credentials in the body — never fetch the full profile and compare client-side.
   Future<void> loginWithStaffIdAndDOB(String staffId, String dob) async {
     final cleanId  = staffId.trim().toUpperCase();
     final cleanDob = dob.trim();
 
-    Map<String, dynamic>? staffData;
-    String? foundUrl;
+    final res = await http
+        .post(
+          Uri.parse(ApiConstants.staffLogin),
+          headers: ApiConstants.headers,
+          body: json.encode({'staff_id': cleanId, 'dob': cleanDob}),
+        )
+        .timeout(const Duration(seconds: 15));
 
-    for (final base in _baseUrls) {
-      try {
-        final res = await http
-            .get(Uri.parse('$base/staff/$cleanId'), headers: _apiHeaders)
-            .timeout(const Duration(seconds: 10));
-        if (res.statusCode == 200) {
-          staffData = json.decode(res.body) as Map<String, dynamic>;
-          foundUrl = base;
-          break;
-        }
-      } catch (_) {}
+    if (res.statusCode != 200) {
+      final msg = _parseError(res.body) ?? 'Login failed (${res.statusCode})';
+      throw Exception(msg);
     }
 
-    if (staffData == null) {
-      throw Exception('Staff ID not found. Please check your Staff ID.');
-    }
+    final body = json.decode(res.body) as Map<String, dynamic>;
+    // Backend should return { token, user: {...} }
+    final token    = body['token']?.toString() ?? body['access_token']?.toString() ?? '';
+    final userData = (body['user'] ?? body['data'] ?? body) as Map<String, dynamic>;
 
-    final apiDob = staffData['dob']?.toString() ?? '';
-    if (cleanDob != apiDob) {
-      throw Exception('Incorrect Date of Birth.');
-    }
+    if (token.isEmpty) throw Exception('Server did not return a token.');
 
-    final email = staffData['college_email']?.toString() ??
-        staffData['email']?.toString() ?? '';
-    final type  = _detectUserType(staffData, email);
-    final token = _generateToken(email, cleanId);
-
-    final fullData = {
-      'staff_id': cleanId,
-      'api_url': foundUrl,
-      ...staffData,
-    };
-
-    await _persistStaffSession(token: token, userData: fullData, userType: type);
-    _accessToken = token;
-    _userData    = fullData;
-    _userType    = type;
+    final type = _detectUserType(userData, userData['college_email']?.toString() ?? '');
+    await _persistStaffSession(token: token, userData: userData, userType: type);
+    _accessToken     = token;
+    _userData        = userData;
+    _userType        = type;
     _isAuthenticated = true;
     notifyListeners();
   }
@@ -146,7 +133,12 @@ class AuthProvider extends ChangeNotifier {
     final email = userData['college_email']?.toString() ??
         userData['email']?.toString() ?? '';
     final type  = _detectUserType(userData, email);
-    final token = _generateToken(email, staffId);
+
+    // Token should come from the server OTP verification response.
+    // If it's already in userData (from verify-otp response), use it.
+    final token = userData['token']?.toString() ??
+        userData['access_token']?.toString() ?? '';
+    if (token.isEmpty) throw Exception('No token in OTP response.');
 
     final fullData = {
       'login_method': 'otp',
@@ -155,44 +147,43 @@ class AuthProvider extends ChangeNotifier {
     };
 
     await _persistStaffSession(token: token, userData: fullData, userType: type);
-    _accessToken = token;
-    _userData    = fullData;
-    _userType    = type;
+    _accessToken     = token;
+    _userData        = fullData;
+    _userType        = type;
     _isAuthenticated = true;
     notifyListeners();
   }
 
-  // ── saveStaffSession (called by OTPLoginScreen / other screens) ───────────
+  // ── saveStaffSession (called by OTPLoginScreen) ───────────────────────────
   Future<void> saveStaffSession({
     required String accessToken,
-    required String refreshToken,
+    required String refreshToken, // stored for future use
     required Map<String, dynamic> userData,
   }) async {
     final email = userData['college_email']?.toString() ??
         userData['email']?.toString() ?? '';
-    final type = _detectUserType(userData, email);
+    final type  = _detectUserType(userData, email);
 
-    await _persistStaffSession(
-        token: accessToken, userData: userData, userType: type);
-    _accessToken  = accessToken;
-    _refreshToken = refreshToken;
-    _userData     = userData;
-    _userType     = type;
+    await _persistStaffSession(token: accessToken, userData: userData, userType: type);
+    _accessToken     = accessToken;
+    _userData        = userData;
+    _userType        = type;
     _isAuthenticated = true;
     notifyListeners();
   }
 
   // ── Student session ───────────────────────────────────────────────────────
+  // Call this ONLY after server-side DOB verification has succeeded.
   Future<void> saveStudentSession({
     required String rollNo,
     required String name,
     required String dob,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_type', UserType.student.stringValue);
-    await prefs.setString('rollNo', rollNo);
-    await prefs.setString('studentName', name);
-    await prefs.setString('dob', dob);
+    await prefs.setString(_PrefKeys.userType,     UserType.student.stringValue);
+    await prefs.setString(_PrefKeys.rollNo,       rollNo);
+    await prefs.setString(_PrefKeys.studentName,  name);
+    await prefs.setString(_PrefKeys.studentDob,   dob);
 
     _studentRollNo   = rollNo;
     _studentName     = name;
@@ -204,10 +195,9 @@ class AuthProvider extends ChangeNotifier {
 
   // ── Logout ────────────────────────────────────────────────────────────────
   Future<void> logout() async {
-    await _clearPrefs();
+    await _clearAuthPrefs(); // only removes auth keys, not all prefs
     _isAuthenticated = false;
     _accessToken     = null;
-    _refreshToken    = null;
     _userData        = null;
     _userType        = UserType.unknown;
     _studentRollNo   = null;
@@ -239,9 +229,14 @@ class AuthProvider extends ChangeNotifier {
     return UserType.staff;
   }
 
-  String _generateToken(String email, String staffId) {
-    final data = '$email:$staffId:${DateTime.now().millisecondsSinceEpoch}';
-    return base64.encode(utf8.encode(data));
+  String? _parseError(String body) {
+    try {
+      final decoded = json.decode(body) as Map<String, dynamic>;
+      return decoded['message']?.toString() ??
+             decoded['error']?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _persistStaffSession({
@@ -250,13 +245,19 @@ class AuthProvider extends ChangeNotifier {
     required UserType userType,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('access_token', token);
-    await prefs.setString('user_data', json.encode(userData));
-    await prefs.setString('user_type', userType.stringValue);
+    await prefs.setString(_PrefKeys.accessToken, token);
+    await prefs.setString(_PrefKeys.userData,    json.encode(userData));
+    await prefs.setString(_PrefKeys.userType,    userType.stringValue);
   }
 
-  Future<void> _clearPrefs() async {
+  /// Removes only authentication-related keys — never wipes all prefs.
+  Future<void> _clearAuthPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove(_PrefKeys.accessToken);
+    await prefs.remove(_PrefKeys.userData);
+    await prefs.remove(_PrefKeys.userType);
+    await prefs.remove(_PrefKeys.rollNo);
+    await prefs.remove(_PrefKeys.studentName);
+    await prefs.remove(_PrefKeys.studentDob);
   }
 }

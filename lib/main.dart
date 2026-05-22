@@ -54,13 +54,11 @@ class _AppRoot extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme.themeData,
       builder: (context, child) => child!,
-      // Splash is always the entry — it decides where to go
-      home: SplashScreen(nextScreen: _resolveHome(auth)),
+      home: SplashScreen(nextScreen: _resolveHome(context, auth, theme)),
       routes: {
         '/login':           (_) => const UnifiedLoginScreen(),
         '/staff-dashboard': (_) => const StaffDashboard(),
       },
-      // Smooth default page transition for named routes
       onGenerateRoute: (settings) {
         Widget? page;
         if (settings.name == '/login') page = const UnifiedLoginScreen();
@@ -71,17 +69,20 @@ class _AppRoot extends StatelessWidget {
     );
   }
 
-  Widget _resolveHome(AuthProvider auth) {
+  Widget _resolveHome(BuildContext context, AuthProvider auth, AppThemeProvider theme) {
     if (auth.isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF05060F),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF7B8CFF))),
+      // Uses theme colors — no hardcoded hex
+      return Scaffold(
+        backgroundColor: theme.bg,
+        body: Center(
+          child: CircularProgressIndicator(color: theme.cyan),
+        ),
       );
     }
     if (!auth.isAuthenticated) return const UnifiedLoginScreen();
     if (auth.userType == UserType.student) {
       return MainPage(
-        rollNo: auth.studentRollNo ?? '',
+        rollNo:      auth.studentRollNo ?? '',
         studentName: auth.studentName ?? 'Student',
       );
     }
@@ -89,7 +90,6 @@ class _AppRoot extends StatelessWidget {
   }
 }
 
-/// Reusable smooth fade+slide page route
 PageRouteBuilder _fadeSlideRoute(Widget page) {
   return PageRouteBuilder(
     pageBuilder: (_, __, ___) => page,

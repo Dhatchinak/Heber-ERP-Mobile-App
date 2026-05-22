@@ -52,7 +52,8 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: theme.elevated,
-                border: Border.all(color: theme.cyan.withOpacity(0.3), width: 2),
+                border:
+                    Border.all(color: theme.cyan.withOpacity(0.3), width: 2),
                 boxShadow: [
                   BoxShadow(color: theme.cyan.withOpacity(0.15), blurRadius: 24)
                 ],
@@ -109,16 +110,15 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen>
                   gradient: LinearGradient(colors: theme.primaryGradient),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
-                    BoxShadow(
-                        color: theme.cyan.withOpacity(0.3), blurRadius: 8)
+                    BoxShadow(color: theme.cyan.withOpacity(0.3), blurRadius: 8)
                   ],
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 labelColor: Colors.white,
                 unselectedLabelColor: theme.textMid,
-                labelStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700),
+                labelStyle:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                 tabs: const [
                   Tab(text: '👨‍🏫  Staff'),
                   Tab(text: '🎓  Student'),
@@ -166,7 +166,6 @@ class _StaffLoginTab extends StatefulWidget {
 }
 
 class _StaffLoginTabState extends State<_StaffLoginTab> {
-  // Staff ID is built as BHC-{dept}-{5digits}, matching working OTPLoginScreen
   final _numCtrl = TextEditingController();
   final List<TextEditingController> _otpCtrl =
       List.generate(6, (_) => TextEditingController());
@@ -182,20 +181,20 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
   int _countdown = 60;
   Timer? _timer;
 
-  // Correct headers — matching working OTPLoginScreen
+  // FIXED: Headers matching ApiConstants
   static const Map<String, String> _h = {
     'Referer': 'https://stafferp.bhc.edu.in/',
     'Origin': 'https://stafferp.bhc.edu.in',
     'Accept': 'application/json',
   };
+
   static const Map<String, String> _hJson = {
-    'Referer': 'http://117.232.64.75',
+    'Referer': 'http://117.232.64.75', // Must have http://
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
 
-  String get _staffId =>
-      'BHC-$_dept-${_numCtrl.text.trim().padLeft(5, '0')}';
+  String get _staffId => 'BHC-$_dept-${_numCtrl.text.trim().padLeft(5, '0')}';
 
   @override
   void dispose() {
@@ -211,90 +210,132 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
     _canResend = false;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) { t.cancel(); return; }
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
       setState(() {
         _countdown--;
-        if (_countdown <= 0) { t.cancel(); _canResend = true; }
+        if (_countdown <= 0) {
+          t.cancel();
+          _canResend = true;
+        }
       });
     });
   }
 
-  Future<void> _sendOtp() async {
-    final num = _numCtrl.text.trim();
-    if (num.isEmpty || num.length > 5) {
-      _err('Enter your 5-digit staff number');
-      return;
-    }
-    setState(() => _loading = true);
-    try {
-      // Step 1: verify staff exists (GET /api/staff/{staffId})
-      final checkRes = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/staff/$_staffId'),
-        headers: _h,
-      ).timeout(const Duration(seconds: 10));
+Future<void> _sendOtp() async {
+  final num = _numCtrl.text.trim();
+  if (num.isEmpty || num.length > 5) {
+    _err('Enter your 5-digit staff number');
+    return;
+  }
+  setState(() => _loading = true);
+  try {
+    // ✅ DIRECTLY SEND OTP - Just like working OTPLoginScreen
+    // No need for the separate staff existence check
+    final otpRes = await http
+        .get(
+          Uri.parse('${ApiConstants.staffSendOtp}/$_staffId'),
+          headers: ApiConstants.headers,  // Use ApiConstants here
+        )
+        .timeout(const Duration(seconds: 15));
 
-      if (checkRes.statusCode != 200) {
-        _err('Staff ID not found. Please check and try again.');
-        return;
-      }
+    debugPrint('SendOTP status: ${otpRes.statusCode} body: ${otpRes.body}');
 
-      final staffData = json.decode(checkRes.body);
-      final d = staffData['data'] ?? staffData;
-      final email = d['college_email']?.toString() ?? d['email']?.toString() ?? '';
-      _maskedEmail = email.isNotEmpty ? _mask(email) : 'your registered email';
-
-      // Step 2: send OTP (GET /staff/login/{staffId}) — matches working app
-      final otpRes = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/staff/login/$_staffId'),
-        headers: _h,
-      ).timeout(const Duration(seconds: 15));
-
-      if (otpRes.statusCode == 200) {
+    if (otpRes.statusCode == 200) {
+      final data = json.decode(otpRes.body);
+      if (data['success'] == true) {
+        // Extract email from the response if available
+        _maskedEmail = data['email']?.toString() != null 
+            ? _mask(data['email'].toString()) 
+            : 'your registered email';
+        
         setState(() => _otpSent = true);
         _startCountdown();
-        _showInfo('OTP sent to ${_maskedEmail ?? "your email"}');
+        _showInfo(data['message'] ?? 'OTP sent to your email');
+        
+        // Focus on first OTP field
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _otpFocus[0].requestFocus();
+        });
       } else {
-        _err('Failed to send OTP (${otpRes.statusCode}). Try again.');
+        _err(data['message'] ?? 'Failed to send OTP');
       }
-    } catch (_) {
-      _err('Connection error. Please check your internet.');
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    } else {
+      _err('Failed to send OTP (${otpRes.statusCode}). Try again.');
     }
+  } catch (e) {
+    debugPrint('SendOTP error: $e');
+    _err('Connection error. Please check your internet.');
+  } finally {
+    if (mounted) setState(() => _loading = false);
   }
+}
 
   Future<void> _verifyOtp() async {
     final otp = _otpCtrl.map((c) => c.text).join();
-    if (otp.length != 6) { _err('Enter the 6-digit OTP'); return; }
+    if (otp.length != 6) {
+      _err('Enter the 6-digit OTP');
+      return;
+    }
     setState(() => _loading = true);
 
     try {
-      // POST /api/staff/login/otp with {staff_id, otp} — matches working app
-      final verRes = await http.post(
-        Uri.parse('https://apierp.bhc.edu.in/api/staff/login/otp'),
-        headers: _hJson,
-        body: json.encode({'staff_id': _staffId, 'otp': otp}),
-      ).timeout(const Duration(seconds: 15));
+      // ✅ USE ApiConstants.otpHeaders
+      final verRes = await http
+          .post(
+            Uri.parse(ApiConstants.staffVerifyOtp),
+            headers: ApiConstants.otpHeaders, // ← Use ApiConstants
+            body: json.encode({'staff_id': _staffId, 'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('VerifyOTP status: ${verRes.statusCode} body: ${verRes.body}');
 
       if (verRes.statusCode == 200) {
         final d = json.decode(verRes.body);
-        if (d['success'] == true) {
-          final userData = (d['data'] ?? d['user'] ?? d) as Map<String, dynamic>;
+
+        // ✅ Handle success properly (bool or string "true")
+        final isSuccess = d['success'] == true ||
+            d['success']?.toString().toLowerCase() == 'true';
+
+        if (isSuccess) {
+          // ✅ Extract token properly
+          final token = d['token']?.toString() ?? '';
+          if (token.isEmpty) {
+            _err('Server did not return a token.');
+            return;
+          }
+
+          final userData =
+              (d['data'] ?? d['user'] ?? d) as Map<String, dynamic>;
           userData['staff_id'] ??= _staffId;
 
           final auth = Provider.of<AuthProvider>(context, listen: false);
-          await auth.loginWithOTP(userData);
+          await auth.saveStaffSession(
+            accessToken: token,
+            refreshToken: d['refresh_token']?.toString() ?? '',
+            userData: userData,
+          );
 
           if (!mounted) return;
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (_) => const StaffDashboard()));
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const StaffDashboard()),
+          );
           return;
         }
         _err(d['message']?.toString() ?? 'Invalid OTP. Please try again.');
+      } else if (verRes.statusCode == 401) {
+        _err('Incorrect OTP. Please try again.');
+      } else if (verRes.statusCode == 410) {
+        _err('OTP has expired. Please request a new one.');
       } else {
         _err('Verification failed (${verRes.statusCode}). Try again.');
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('VerifyOTP error: $e');
       _err('Connection error. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -310,8 +351,8 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
 
   void _err(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   void _showInfo(String msg) {
@@ -369,13 +410,14 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
             value: _dept,
             isExpanded: true,
             icon: Icon(Icons.expand_more_rounded, color: t.cyan),
-            style: TextStyle(fontSize: 14, color: t.textHigh, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 14, color: t.textHigh, fontWeight: FontWeight.w600),
             dropdownColor: t.elevated,
             borderRadius: BorderRadius.circular(14),
             onChanged: (v) => setState(() => _dept = v!),
-            items: _depts.map((d) =>
-              DropdownMenuItem(value: d, child: Text(d))
-            ).toList(),
+            items: _depts
+                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                .toList(),
           ),
         ),
       ),
@@ -392,13 +434,15 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
         ),
         child: Row(children: [
           Text('BHC-$_dept-',
-              style: TextStyle(color: t.cyan, fontSize: 14, fontWeight: FontWeight.w700)),
+              style: TextStyle(
+                  color: t.cyan, fontSize: 14, fontWeight: FontWeight.w700)),
           Expanded(
             child: TextField(
               controller: _numCtrl,
               keyboardType: TextInputType.number,
               maxLength: 5,
-              style: TextStyle(color: t.textHigh, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: t.textHigh, fontSize: 14, fontWeight: FontWeight.w600),
               decoration: InputDecoration(
                 hintText: '00000',
                 hintStyle: TextStyle(color: t.textLow),
@@ -429,7 +473,10 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
       // Back
       Row(children: [
         GestureDetector(
-          onTap: () => setState(() { _otpSent = false; _timer?.cancel(); }),
+          onTap: () => setState(() {
+            _otpSent = false;
+            _timer?.cancel();
+          }),
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -451,49 +498,59 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
       const SizedBox(height: 20),
 
       Text('Enter 6-digit OTP',
-          style: TextStyle(color: t.textHigh, fontSize: 15, fontWeight: FontWeight.w700)),
+          style: TextStyle(
+              color: t.textHigh, fontSize: 15, fontWeight: FontWeight.w700)),
       const SizedBox(height: 14),
 
       // OTP boxes
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(6, (i) => SizedBox(
-          width: 46,
-          child: TextField(
-            controller: _otpCtrl[i],
-            focusNode: _otpFocus[i],
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.textHigh),
-            keyboardType: TextInputType.number,
-            maxLength: 1,
-            decoration: InputDecoration(
-              counterText: '',
-              filled: true,
-              fillColor: t.surface,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: t.border)),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: t.border)),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: t.cyan, width: 2)),
-            ),
-            onChanged: (v) {
-              if (v.isNotEmpty && i < 5) {
-                FocusScope.of(context).requestFocus(_otpFocus[i + 1]);
-              } else if (v.isEmpty && i > 0) {
-                FocusScope.of(context).requestFocus(_otpFocus[i - 1]);
-              }
-              if (i == 5 && v.isNotEmpty) _verifyOtp();
-            },
-          ),
-        )),
+        children: List.generate(
+            6,
+            (i) => SizedBox(
+                  width: 46,
+                  child: TextField(
+                    controller: _otpCtrl[i],
+                    focusNode: _otpFocus[i],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: t.textHigh),
+                    keyboardType: TextInputType.number,
+                    maxLength: 1,
+                    decoration: InputDecoration(
+                      counterText: '',
+                      filled: true,
+                      fillColor: t.surface,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: t.border)),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: t.border)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: t.cyan, width: 2)),
+                    ),
+                    onChanged: (v) {
+                      if (v.isNotEmpty && i < 5) {
+                        FocusScope.of(context).requestFocus(_otpFocus[i + 1]);
+                      } else if (v.isEmpty && i > 0) {
+                        FocusScope.of(context).requestFocus(_otpFocus[i - 1]);
+                      }
+                      if (i == 5 && v.isNotEmpty) _verifyOtp();
+                    },
+                  ),
+                )),
       ),
       const SizedBox(height: 20),
 
-      _btn(label: 'Verify & Login', loading: _loading, theme: t, onTap: _verifyOtp),
+      _btn(
+          label: 'Verify & Login',
+          loading: _loading,
+          theme: t,
+          onTap: _verifyOtp),
       const SizedBox(height: 12),
 
       Center(
@@ -537,22 +594,31 @@ class _StudentLoginTabState extends State<_StudentLoginTab> {
 
   Future<void> _verify() async {
     final roll = _rollCtrl.text.trim().toUpperCase();
-    if (roll.isEmpty) { _err('Please enter your Roll Number'); return; }
-    if (_dob == null) { _err('Please select your Date of Birth'); return; }
+    if (roll.isEmpty) {
+      _err('Please enter your Roll Number');
+      return;
+    }
+    if (_dob == null) {
+      _err('Please select your Date of Birth');
+      return;
+    }
 
     setState(() => _loading = true);
     try {
-      final res = await http.get(
-        Uri.parse('${ApiConstants.studentBase}/$roll'),
-        headers: ApiConstants.headers,
-      ).timeout(const Duration(seconds: 15));
+      final res = await http
+          .get(
+            Uri.parse('${ApiConstants.studentBase}/$roll'),
+            headers: ApiConstants.headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         final studentData = data['data'] ?? data;
 
         String serverDob = studentData['personal_info']?['dob']?.toString() ??
-            studentData['dob']?.toString() ?? '';
+            studentData['dob']?.toString() ??
+            '';
         if (serverDob.contains('T')) serverDob = serverDob.split('T')[0];
 
         final enteredDob =
@@ -567,13 +633,16 @@ class _StudentLoginTabState extends State<_StudentLoginTab> {
           Navigator.pushReplacement(
             context,
             PageRouteBuilder(
-              pageBuilder: (_, __, ___) => MainPage(rollNo: roll, studentName: name),
+              pageBuilder: (_, __, ___) =>
+                  MainPage(rollNo: roll, studentName: name),
               transitionDuration: const Duration(milliseconds: 400),
               transitionsBuilder: (_, anim, __, child) => FadeTransition(
                 opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
                 child: SlideTransition(
-                  position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
-                      .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+                  position: Tween<Offset>(
+                          begin: const Offset(0, 0.03), end: Offset.zero)
+                      .animate(
+                          CurvedAnimation(parent: anim, curve: Curves.easeOut)),
                   child: child,
                 ),
               ),
@@ -594,8 +663,8 @@ class _StudentLoginTabState extends State<_StudentLoginTab> {
 
   void _err(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   @override
@@ -641,8 +710,7 @@ class _StudentLoginTabState extends State<_StudentLoginTab> {
             initialDate: DateTime(2000),
             firstDate: DateTime(1980),
             lastDate: DateTime.now(),
-            builder: (ctx, child) =>
-                Theme(data: t.themeData, child: child!),
+            builder: (ctx, child) => Theme(data: t.themeData, child: child!),
           );
           if (picked != null) setState(() => _dob = picked);
         },
@@ -661,8 +729,8 @@ class _StudentLoginTabState extends State<_StudentLoginTab> {
             Text(
               _dob != null
                   ? '${_dob!.day.toString().padLeft(2, '0')} / '
-                    '${_dob!.month.toString().padLeft(2, '0')} / '
-                    '${_dob!.year}'
+                      '${_dob!.month.toString().padLeft(2, '0')} / '
+                      '${_dob!.year}'
                   : 'Date of Birth',
               style: TextStyle(
                   color: _dob != null ? t.textHigh : t.textLow,

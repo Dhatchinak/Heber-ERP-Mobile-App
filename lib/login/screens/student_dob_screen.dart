@@ -36,9 +36,7 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
 
   Future<void> _verifyAndLogin() async {
     if (_rollNo == null || _selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your date of birth')),
-      );
+      _showError('Please select your date of birth');
       return;
     }
 
@@ -46,59 +44,74 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
 
     try {
       final formattedDob =
-          "${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}";
+          '${_selectedDate!.year}-'
+          '${_selectedDate!.month.toString().padLeft(2, '0')}-'
+          '${_selectedDate!.day.toString().padLeft(2, '0')}';
 
-      final response = await http.get(
-        Uri.parse('${ApiConstants.studentBase}/${_rollNo}'),
-        headers: ApiConstants.headers,
-      ).timeout(const Duration(seconds: 30));
+      // ── Server-side DOB verification ───────────────────────────────────
+      // POST roll_no + dob to the server; the server compares and returns
+      // the student record only if DOB matches — no client-side comparison.
+      final response = await http
+          .post(
+            Uri.parse(ApiConstants.studentVerifyDob),
+            headers: ApiConstants.headers,
+            body: json.encode({'roll_no': _rollNo, 'dob': formattedDob}),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final studentData = data['data'];
+        final data        = json.decode(response.body) as Map<String, dynamic>;
+        final studentData = (data['data'] ?? data) as Map<String, dynamic>?;
 
         if (studentData != null) {
-          String serverDob = studentData['personal_info']?['dob'] ?? '';
-          if (serverDob.contains('T')) serverDob = serverDob.split('T')[0];
-          String studentName = studentData['name'] ?? 'Student';
+          final studentName = studentData['name']?.toString() ?? 'Student';
 
-          if (serverDob == formattedDob) {
-            final authProvider = Provider.of<AuthProvider>(context, listen: false);
-            await authProvider.saveStudentSession(
-              rollNo: _rollNo!,
-              name: studentName,
-              dob: formattedDob,
-            );
+          if (!mounted) return;
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.saveStudentSession(
+            rollNo: _rollNo!,
+            name:   studentName,
+            dob:    formattedDob,
+          );
 
-            if (!mounted) return;
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MainPage(
-                  rollNo: _rollNo!,
-                  studentName: studentName,
-                ),
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MainPage(
+                rollNo:       _rollNo!,
+                studentName:  studentName,
               ),
-            );
-          } else {
-            _showError('Date of Birth does not match our records');
-          }
+            ),
+          );
         } else {
           _showError('Student not found');
         }
+      } else if (response.statusCode == 401) {
+        _showError('Date of Birth does not match our records');
+      } else if (response.statusCode == 404) {
+        _showError('Student not found');
       } else {
-        _showError('Failed to verify. Please try again.');
+        _showError('Verification failed. Please try again.');
       }
-    } catch (e) {
+    } on http.ClientException catch (e) {
+      debugPrint('StudentDobScreen: network error — $e');
       _showError('Connection error. Please check your internet.');
+    } catch (e) {
+      debugPrint('StudentDobScreen: unexpected error — $e');
+      _showError('Something went wrong. Please try again.');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 
@@ -126,6 +139,7 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Roll number display
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -148,10 +162,8 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Roll Number',
-                            style: TextStyle(color: theme.textLow, fontSize: 11),
-                          ),
+                          Text('Roll Number',
+                              style: TextStyle(color: theme.textLow, fontSize: 11)),
                           Text(
                             _rollNo ?? 'Not detected',
                             style: TextStyle(
@@ -185,10 +197,8 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
                     initialDate: DateTime(2000),
                     firstDate: DateTime(1950),
                     lastDate: DateTime.now(),
-                    builder: (context, child) => Theme(
-                      data: theme.themeData,
-                      child: child!,
-                    ),
+                    builder: (context, child) =>
+                        Theme(data: theme.themeData, child: child!),
                   );
                   if (picked != null) setState(() => _selectedDate = picked);
                 },
@@ -208,7 +218,9 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
                             ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
                             : 'Select Date of Birth',
                         style: TextStyle(
-                          color: _selectedDate != null ? theme.textHigh : theme.textLow,
+                          color: _selectedDate != null
+                              ? theme.textHigh
+                              : theme.textLow,
                           fontSize: 14,
                         ),
                       ),
@@ -230,7 +242,7 @@ class _StudentDobScreenState extends State<StudentDobScreen> {
                     ),
                   ),
                   child: _isLoading
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 22,
                           height: 22,
                           child: CircularProgressIndicator(
