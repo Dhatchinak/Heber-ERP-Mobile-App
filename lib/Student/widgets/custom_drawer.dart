@@ -566,284 +566,290 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.84,
       backgroundColor: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border(right: BorderSide(color: c.border, width: 1)),
-        ),
-        child: Column(
-          children: [
-            // ── HEADER ──────────────────────────────────────────────────────
-            Container(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                MediaQuery.of(context).padding.top + 16,
-                20,
-                20,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [c.elevated, c.elevated2],
+      child: Material(
+        // ← ADD THIS
+        color: Colors.transparent, // ← ADD THIS
+        child: Container(
+          decoration: BoxDecoration(
+            color: c.surface,
+            border: Border(right: BorderSide(color: c.border, width: 1)),
+          ),
+          child: Column(
+            children: [
+              // ── HEADER ──────────────────────────────────────────────────────
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  MediaQuery.of(context).padding.top + 16,
+                  20,
+                  20,
                 ),
-                border: Border(bottom: BorderSide(color: c.border, width: 1)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Photo
-                      _buildPhotoWidget(c),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayName,
-                              style: TextStyle(
-                                color: c.textHigh,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            // Roll No chip
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: c.cyan.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border:
-                                    Border.all(color: c.cyan.withOpacity(0.3)),
-                              ),
-                              child: Text(
-                                displayRollNo.isNotEmpty
-                                    ? displayRollNo
-                                    : 'Loading...',
-                                style: TextStyle(
-                                  color: c.cyan,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                      color: c.green, shape: BoxShape.circle),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  "Active Student",
-                                  style: TextStyle(
-                                      color: c.textMid,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [c.elevated, c.elevated2],
                   ),
-                  const SizedBox(height: 16),
-                  // ── STATS ────────────────────────────────────────────────
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _drawerDataFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return _buildLoadingStats(c); // Add loading state
-                      }
-
-                      if (snapshot.hasError) {
-                        return _buildErrorStats(c); // Add error state
-                      }
-
-                      final data = snapshot.data ?? _defaultDrawerData();
-                      final semester = data?['currentSemester'] ?? 1;
-                      final semesterName =
-                          data?['currentSemesterName'] ?? 'Semester';
-                      final weeksCompleted = data?['weeksCompleted'] ?? 0;
-                      final totalWeeks = data?['totalWeeks'] ?? 16;
-                      final courses = data?['currentSemesterCourses'] ?? 6;
-                      final attendancePct =
-                          (data?['attendancePercentage'] ?? 0.0) as double;
-                      final isLoading =
-                          snapshot.connectionState == ConnectionState.waiting;
-
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: c.bg.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: c.border),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(semesterName,
-                                    style: TextStyle(
-                                        color: c.textHigh,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600)),
-                                Text("Week $weeksCompleted/$totalWeeks",
-                                    style: TextStyle(
-                                        color: c.textMid, fontSize: 11)),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: totalWeeks > 0
-                                    ? (weeksCompleted / totalWeeks)
-                                        .clamp(0.0, 1.0)
-                                    : 0,
-                                backgroundColor: c.border,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(c.cyan),
-                                minHeight: 4,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            isLoading
-                                ? Center(
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: c.cyan),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
-                                    children: [
-                                      _drawerStat(
-                                        (data?['usingFallback'] == true)
-                                            ? (semesterName.replaceAll(
-                                                ' Semester',
-                                                '')) // "Even" or "Odd"
-                                            : _getOrdinalSemester(
-                                                semester), // "2nd" when profile loaded
-                                        "SEM",
-                                        c.violet,
-                                        c,
-                                      ),
-                                      _vDivider(c),
-                                      _drawerStat(
-                                          courses == 0 ? "…" : "$courses",
-                                          "COURSES",
-                                          c.cyan,
-                                          c),
-                                      _vDivider(c),
-                                      _drawerStat(
-                                          "${attendancePct.toStringAsFixed(0)}%",
-                                          "ATTEND",
-                                          c.green,
-                                          c),
-                                    ],
-                                  ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // ── NAV ITEMS ───────────────────────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                  border: Border(bottom: BorderSide(color: c.border, width: 1)),
+                ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _navGroup("MAIN", [
-                      _navItem(Icons.dashboard_rounded, "Dashboard", c.cyan,
-                          isDashboard, c,
-                          onTap: () => _navigateTo(MainPage(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                    ]),
-                    _navGroup("ACADEMICS", [
-                      _navItem(Icons.person_rounded, "My Profile", c.violet,
-                          isProfile, c,
-                          onTap: () => _navigateTo(ProfileScreen(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                      _navItem(Icons.schedule_rounded, "Timetable", c.cyan,
-                          isTimetable, c,
-                          onTap: () => _navigateTo(
-                              TimetableScreen(rollNo: displayRollNo))),
-                      // In custom_drawer.dart - UPDATE THIS:
-                      _navItem(Icons.subject_rounded, "Subjects", c.green,
-                          isSubjects, c,
-                          onTap: () => _navigateTo(SubjectsPage(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                      _navItem(Icons.school_rounded, "Student Mentor", c.amber,
-                          isMentor, c,
-                          onTap: () => _navigateTo(MentorScreen(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                    ]),
-                    _navGroup("ATTENDANCE", [
-                      _navItem(Icons.calendar_today_rounded, "Daily Attendance",
-                          c.cyan, isAttendance, c,
-                          onTap: () => _navigateTo(AttendanceScreen(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                      _navItem(Icons.leave_bags_at_home_rounded,
-                          "Leave Management", c.pink, isLeave, c,
-                          onTap: () => _navigateTo(LeaveManagementScreen(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                    ]),
-                    _navGroup("EXAMINATIONS", [
-                      _navItem(Icons.grade_rounded, "Exam Results", c.green,
-                          isExamResults, c,
-                          onTap: () => _navigateTo(ExamResultsPage(
-                              studentName: displayName,
-                              rollNo: displayRollNo))),
-                      _navItem(Icons.chair_rounded, "Seating Arrangement",
-                          c.violet, isSeating, c,
-                          onTap: () => _navigateTo(SeatingArrangementPage(
-                              studentName: displayName,
-                              rollNo: displayRollNo))),
-                    ]),
-                    _navGroup("CAMPUS", [
-                      _navItem(Icons.event_rounded, "Academic Calendar",
-                          c.amber, isCalendar, c,
-                          onTap: () => _navigateTo(AcademicCalendarScreen(
-                              rollNo: displayRollNo,
-                              studentName: displayName))),
-                    ]),
-                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Photo
+                        _buildPhotoWidget(c),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                style: TextStyle(
+                                  color: c.textHigh,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              // Roll No chip
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: c.cyan.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: c.cyan.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  displayRollNo.isNotEmpty
+                                      ? displayRollNo
+                                      : 'Loading...',
+                                  style: TextStyle(
+                                    color: c.cyan,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                        color: c.green, shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    "Active Student",
+                                    style: TextStyle(
+                                        color: c.textMid,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // ── STATS ────────────────────────────────────────────────
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _drawerDataFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return _buildLoadingStats(c); // Add loading state
+                        }
+
+                        if (snapshot.hasError) {
+                          return _buildErrorStats(c); // Add error state
+                        }
+
+                        final data = snapshot.data ?? _defaultDrawerData();
+                        final semester = data?['currentSemester'] ?? 1;
+                        final semesterName =
+                            data?['currentSemesterName'] ?? 'Semester';
+                        final weeksCompleted = data?['weeksCompleted'] ?? 0;
+                        final totalWeeks = data?['totalWeeks'] ?? 16;
+                        final courses = data?['currentSemesterCourses'] ?? 6;
+                        final attendancePct =
+                            (data?['attendancePercentage'] ?? 0.0) as double;
+                        final isLoading =
+                            snapshot.connectionState == ConnectionState.waiting;
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: c.bg.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: c.border),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(semesterName,
+                                      style: TextStyle(
+                                          color: c.textHigh,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600)),
+                                  Text("Week $weeksCompleted/$totalWeeks",
+                                      style: TextStyle(
+                                          color: c.textMid, fontSize: 11)),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: totalWeeks > 0
+                                      ? (weeksCompleted / totalWeeks)
+                                          .clamp(0.0, 1.0)
+                                      : 0,
+                                  backgroundColor: c.border,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(c.cyan),
+                                  minHeight: 4,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              isLoading
+                                  ? Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2, color: c.cyan),
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _drawerStat(
+                                          (data?['usingFallback'] == true)
+                                              ? (semesterName.replaceAll(
+                                                  ' Semester',
+                                                  '')) // "Even" or "Odd"
+                                              : _getOrdinalSemester(
+                                                  semester), // "2nd" when profile loaded
+                                          "SEM",
+                                          c.violet,
+                                          c,
+                                        ),
+                                        _vDivider(c),
+                                        _drawerStat(
+                                            courses == 0 ? "…" : "$courses",
+                                            "COURSES",
+                                            c.cyan,
+                                            c),
+                                        _vDivider(c),
+                                        _drawerStat(
+                                            "${attendancePct.toStringAsFixed(0)}%",
+                                            "ATTEND",
+                                            c.green,
+                                            c),
+                                      ],
+                                    ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
-            ),
 
-            // ── FOOTER ──────────────────────────────────────────────────────
-            _buildDrawerFooter(c),
-          ],
+              // ── NAV ITEMS ───────────────────────────────────────────────────
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    children: [
+                      _navGroup("MAIN", [
+                        _navItem(Icons.dashboard_rounded, "Dashboard", c.cyan,
+                            isDashboard, c,
+                            onTap: () => _navigateTo(MainPage(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                      ]),
+                      _navGroup("ACADEMICS", [
+                        _navItem(Icons.person_rounded, "My Profile", c.violet,
+                            isProfile, c,
+                            onTap: () => _navigateTo(ProfileScreen(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                        _navItem(Icons.schedule_rounded, "Timetable", c.cyan,
+                            isTimetable, c,
+                            onTap: () => _navigateTo(
+                                TimetableScreen(rollNo: displayRollNo))),
+                        // In custom_drawer.dart - UPDATE THIS:
+                        _navItem(Icons.subject_rounded, "Subjects", c.green,
+                            isSubjects, c,
+                            onTap: () => _navigateTo(SubjectsPage(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                        _navItem(Icons.school_rounded, "Student Mentor",
+                            c.amber, isMentor, c,
+                            onTap: () => _navigateTo(MentorScreen(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                      ]),
+                      _navGroup("ATTENDANCE", [
+                        _navItem(Icons.calendar_today_rounded,
+                            "Daily Attendance", c.cyan, isAttendance, c,
+                            onTap: () => _navigateTo(AttendanceScreen(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                        _navItem(Icons.leave_bags_at_home_rounded,
+                            "Leave Management", c.pink, isLeave, c,
+                            onTap: () => _navigateTo(LeaveManagementScreen(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                      ]),
+                      _navGroup("EXAMINATIONS", [
+                        _navItem(Icons.grade_rounded, "Exam Results", c.green,
+                            isExamResults, c,
+                            onTap: () => _navigateTo(ExamResultsPage(
+                                studentName: displayName,
+                                rollNo: displayRollNo))),
+                        _navItem(Icons.chair_rounded, "Seating Arrangement",
+                            c.violet, isSeating, c,
+                            onTap: () => _navigateTo(SeatingArrangementPage(
+                                studentName: displayName,
+                                rollNo: displayRollNo))),
+                      ]),
+                      _navGroup("CAMPUS", [
+                        _navItem(Icons.event_rounded, "Academic Calendar",
+                            c.amber, isCalendar, c,
+                            onTap: () => _navigateTo(AcademicCalendarScreen(
+                                rollNo: displayRollNo,
+                                studentName: displayName))),
+                      ]),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── FOOTER ──────────────────────────────────────────────────────
+              _buildDrawerFooter(c),
+            ],
+          ),
         ),
       ),
     );
@@ -888,44 +894,65 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
   }
 
-  Widget _navItem(IconData icon, String title, Color color, bool isSelected,
-      ThemeProvider c,
-      {required VoidCallback onTap}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected ? color.withOpacity(0.08) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: isSelected ? Border.all(color: color.withOpacity(0.25)) : null,
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        minLeadingWidth: 0,
-        horizontalTitleGap: 12,
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.15) : c.elevated,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? color.withOpacity(0.4) : c.border,
-              width: isSelected ? 1 : 0.5,
+  Widget _navItem(
+    IconData icon,
+    String title,
+    Color color,
+    bool isSelected,
+    ThemeProvider c, {
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          tileColor: isSelected ? color.withOpacity(0.08) : Colors.transparent,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          minLeadingWidth: 0,
+          horizontalTitleGap: 12,
+          // tileColor: isSelected ? color.withOpacity(0.08) : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isSelected
+                ? BorderSide(color: color.withOpacity(0.25))
+                : BorderSide.none,
+          ),
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isSelected ? color.withOpacity(0.15) : c.elevated,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? color.withOpacity(0.4) : c.border,
+                width: isSelected ? 1 : 0.5,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? color : c.textMid,
+              size: 17,
             ),
           ),
-          child: Icon(icon, color: isSelected ? color : c.textMid, size: 17),
-        ),
-        title: Text(title,
+          title: Text(
+            title,
             style: TextStyle(
               color: isSelected ? color : c.textMid,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            )),
-        trailing: isSelected
-            ? Icon(Icons.chevron_right_rounded,
-                color: color.withOpacity(0.6), size: 16)
-            : null,
-        onTap: onTap,
+            ),
+          ),
+          trailing: isSelected
+              ? Icon(
+                  Icons.chevron_right_rounded,
+                  color: color.withOpacity(0.6),
+                  size: 16,
+                )
+              : null,
+          onTap: onTap,
+        ),
       ),
     );
   }
@@ -939,76 +966,74 @@ class _CustomDrawerState extends State<CustomDrawer> {
               BoxDecoration(border: Border(top: BorderSide(color: c.border))),
           child: Column(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: c.cyan.withOpacity(0.08),
+              // Theme Toggle - NO Container wrapper
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                minLeadingWidth: 0,
+                horizontalTitleGap: 12,
+                tileColor: c.cyan.withOpacity(0.08),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: c.cyan.withOpacity(0.2)),
+                  side: BorderSide(color: c.cyan.withOpacity(0.2)),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  minLeadingWidth: 0,
-                  horizontalTitleGap: 12,
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: c.cyan.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      themeProvider.isDarkMode
-                          ? Icons.dark_mode_rounded
-                          : Icons.light_mode_rounded,
-                      color: c.cyan,
-                      size: 17,
-                    ),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: c.cyan.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  title: Text(
-                    themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
-                    style: TextStyle(
-                        color: c.textHigh,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700),
+                  child: Icon(
+                    themeProvider.isDarkMode
+                        ? Icons.dark_mode_rounded
+                        : Icons.light_mode_rounded,
+                    color: c.cyan,
+                    size: 17,
                   ),
-                  trailing: Switch(
-                    value: themeProvider.isDarkMode,
-                    onChanged: (_) => themeProvider.toggleTheme(),
-                    activeColor: c.cyan,
-                    activeTrackColor: c.cyan.withOpacity(0.3),
-                    inactiveThumbColor: c.textMid,
-                    inactiveTrackColor: c.border,
-                  ),
-                  onTap: () => themeProvider.toggleTheme(),
                 ),
+                title: Text(
+                  themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
+                  style: TextStyle(
+                      color: c.textHigh,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700),
+                ),
+                trailing: Switch(
+                  value: themeProvider.isDarkMode,
+                  onChanged: (_) => themeProvider.toggleTheme(),
+                  activeColor: c.cyan,
+                  activeTrackColor: c.cyan.withOpacity(0.3),
+                  inactiveThumbColor: c.textMid,
+                  inactiveTrackColor: c.border,
+                ),
+                onTap: () => themeProvider.toggleTheme(),
               ),
               const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: c.pink.withOpacity(0.08),
+              // Logout - NO Container wrapper
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                minLeadingWidth: 0,
+                horizontalTitleGap: 12,
+                tileColor: c.pink.withOpacity(0.08),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: c.pink.withOpacity(0.2)),
+                  side: BorderSide(color: c.pink.withOpacity(0.2)),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  minLeadingWidth: 0,
-                  horizontalTitleGap: 12,
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: c.pink.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: c.pink.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  title: Text("Logout",
-                      style: TextStyle(
-                          color: c.pink,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700)),
-                  onTap: _handleLogout,
+                  child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
                 ),
+                title: Text(
+                  "Logout",
+                  style: TextStyle(
+                      color: c.pink, fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                onTap: _handleLogout,
               ),
               const SizedBox(height: 10),
               Text("Heber ERP v1.0.0",
@@ -1057,67 +1082,70 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
 // In custom_drawer.dart - REPLACE _calcSemInfo method:
-Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
-  final now = DateTime.now();
-  
-  // Try to detect from calendar dates first
-  if (cal.isNotEmpty) {
-    for (final entry in [
-      {'key': 'sem_odd', 'sem': 1, 'name': 'Odd Semester'},
-      {'key': 'sem_even', 'sem': 2, 'name': 'Even Semester'},
-    ]) {
-      final sem = cal[entry['key']] as Map<String, dynamic>?;
-      if (sem != null && sem['startDate'] != null && sem['endDate'] != null) {
-        try {
-          final s = DateTime.parse(sem['startDate']);
-          final e = DateTime.parse(sem['endDate']);
-          if (now.isAfter(s.subtract(const Duration(days: 1))) &&
-              now.isBefore(e.add(const Duration(days: 1)))) {
-            final totalWeeks = ((e.difference(s).inDays) / 7).ceil().clamp(1, 26);
-            final weeksCompleted = now.isBefore(s)
-                ? 0
-                : ((now.difference(s).inDays) / 7).floor().clamp(0, totalWeeks);
-            return {
-              'semester': entry['sem'],
-              'semesterName': entry['name'],
-              'weeksCompleted': weeksCompleted,
-              'totalWeeks': totalWeeks,
-            };
+  Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
+    final now = DateTime.now();
+
+    // Try to detect from calendar dates first
+    if (cal.isNotEmpty) {
+      for (final entry in [
+        {'key': 'sem_odd', 'sem': 1, 'name': 'Odd Semester'},
+        {'key': 'sem_even', 'sem': 2, 'name': 'Even Semester'},
+      ]) {
+        final sem = cal[entry['key']] as Map<String, dynamic>?;
+        if (sem != null && sem['startDate'] != null && sem['endDate'] != null) {
+          try {
+            final s = DateTime.parse(sem['startDate']);
+            final e = DateTime.parse(sem['endDate']);
+            if (now.isAfter(s.subtract(const Duration(days: 1))) &&
+                now.isBefore(e.add(const Duration(days: 1)))) {
+              final totalWeeks =
+                  ((e.difference(s).inDays) / 7).ceil().clamp(1, 26);
+              final weeksCompleted = now.isBefore(s)
+                  ? 0
+                  : ((now.difference(s).inDays) / 7)
+                      .floor()
+                      .clamp(0, totalWeeks);
+              return {
+                'semester': entry['sem'],
+                'semesterName': entry['name'],
+                'weeksCompleted': weeksCompleted,
+                'totalWeeks': totalWeeks,
+              };
+            }
+          } catch (e) {
+            debugPrint('Error parsing dates: $e');
           }
-        } catch (e) {
-          debugPrint('Error parsing dates: $e');
         }
       }
     }
-  }
-  
-  // Fallback: use month-based detection
-  final isOdd = now.month >= 6 && now.month <= 11;
-  final currentYear = now.year;
-  DateTime startDate;
-  DateTime endDate;
-  
-  if (isOdd) {
-    startDate = DateTime(currentYear, 6, 1);
-    endDate = DateTime(currentYear, 11, 30);
-  } else {
-    startDate = DateTime(currentYear, 12, 1);
-    endDate = DateTime(currentYear + 1, 5, 31);
-  }
-  
-  final totalWeeks = ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
-  final weeksCompleted = now.isBefore(startDate)
-      ? 0
-      : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
-  
-  return {
-    'semester': isOdd ? 1 : 2,
-    'semesterName': isOdd ? 'Odd Semester' : 'Even Semester',
-    'weeksCompleted': weeksCompleted,
-    'totalWeeks': totalWeeks,
-  };
-}
 
+    // Fallback: use month-based detection
+    final isOdd = now.month >= 6 && now.month <= 11;
+    final currentYear = now.year;
+    DateTime startDate;
+    DateTime endDate;
+
+    if (isOdd) {
+      startDate = DateTime(currentYear, 6, 1);
+      endDate = DateTime(currentYear, 11, 30);
+    } else {
+      startDate = DateTime(currentYear, 12, 1);
+      endDate = DateTime(currentYear + 1, 5, 31);
+    }
+
+    final totalWeeks =
+        ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
+    final weeksCompleted = now.isBefore(startDate)
+        ? 0
+        : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
+
+    return {
+      'semester': isOdd ? 1 : 2,
+      'semesterName': isOdd ? 'Odd Semester' : 'Even Semester',
+      'weeksCompleted': weeksCompleted,
+      'totalWeeks': totalWeeks,
+    };
+  }
 
   double _calcAttendancePct(Map<String, dynamic> data) {
     try {
@@ -1192,42 +1220,43 @@ Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
       return 0.0;
     }
   }
-  
-Widget _buildLoadingStats(ThemeProvider c) {
-  return Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: c.bg.withOpacity(0.5),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: c.border),
-    ),
-    child: Center(
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
-      ),
-    ),
-  );
-}
 
-Widget _buildErrorStats(ThemeProvider c) {
-  return Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: c.bg.withOpacity(0.5),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: c.pink.withOpacity(0.3)),
-    ),
-    child: Column(
-      children: [
-        Icon(Icons.error_outline, color: c.pink, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          "Failed to load stats",
-          style: TextStyle(color: c.textMid, fontSize: 12),
+  Widget _buildLoadingStats(ThemeProvider c) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.bg.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.border),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
         ),
-      ],
-    ),
-  );
-}}
+      ),
+    );
+  }
+
+  Widget _buildErrorStats(ThemeProvider c) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.bg.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.pink.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline, color: c.pink, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            "Failed to load stats",
+            style: TextStyle(color: c.textMid, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}

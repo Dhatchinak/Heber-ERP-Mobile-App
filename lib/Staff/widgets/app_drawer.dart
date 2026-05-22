@@ -711,19 +711,21 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isSelected ? theme.cyan : theme.textMid;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected ? theme.cyan.withOpacity(0.08) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border:
-            isSelected ? Border.all(color: theme.cyan.withOpacity(0.25)) : null,
-      ),
+    // REPLACE Container with Material
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         minLeadingWidth: 0,
         horizontalTitleGap: 12,
+        tileColor: isSelected ? theme.cyan.withOpacity(0.08) : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isSelected 
+              ? BorderSide(color: theme.cyan.withOpacity(0.25)) 
+              : BorderSide.none,
+        ),
         leading: Container(
           width: 36,
           height: 36,
@@ -775,6 +777,7 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
+
 
 class _DrawerFooter extends StatelessWidget {
   final StaffThemeProvider theme;
