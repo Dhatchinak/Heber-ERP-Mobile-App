@@ -10,8 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  DATA MODELS
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 enum EventType { exam, holiday, academic, staff, student, department }
 
@@ -113,9 +112,7 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 class AcademicCalendarScreen extends StatefulWidget {
   final String rollNo;
@@ -232,7 +229,6 @@ Future<void> _loadStudentName() async {
   });
 }
 
-  // ─── FETCH ────────────────────────────────────────────────────────────────
 
   Future<void> _fetchCalendarData() async {
     setState(() {

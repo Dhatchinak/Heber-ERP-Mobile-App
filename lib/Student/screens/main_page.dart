@@ -24,20 +24,6 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// ─── Color System ────────────────────────────────────────────────────────────
-// DARK FUTURISTIC PALETTE
-// Primary BG:  #0A0E1A (deep navy black)
-// Surface:     #0F1628 (card background)
-// Elevated:    #151D35 (elevated cards)
-// Border:      #1E2D4A (subtle borders)
-// Accent Cyan: #00D4FF (primary neon)
-// Accent Violet:#7C3AED (secondary)
-// Accent Pink: #F472B6 (danger/warm)
-// Accent Green:#10F5A8 (success neon)
-// Text High:   #E2E8FF (primary text)
-// Text Mid:    #7B8DB8 (secondary text)
-// Text Low:    #3A4A6B (muted text)
-
 const String baseApiUrl = 'https://apierp.bhc.edu.in';
 const String refererUrl = 'http://117.232.64.75';
 
@@ -463,11 +449,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     }
   }
 
-
-
-
-
-
   Future<Map<String, dynamic>> _fetchStudentProfile() async {
     if (_cachedProfileRoll == widget.rollNo && _cachedProfile != null) {
       return _cachedProfile!;
@@ -490,54 +471,58 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     }
   }
 
-  int _calculateCurrentSemesterNumber(
-    Map<String, dynamic> studentProfile,
-    Map<String, dynamic> calendarData,
-  ) {
-    try {
-      if (studentProfile.isEmpty)
-        return _calculateFallbackSemester(calendarData);
-      final studentData = studentProfile['data'];
-      if (studentData == null) return _calculateFallbackSemester(calendarData);
-      final admissionDateStr = studentData['admission_date'];
-      final batch = studentData['batch'] as String?;
-      final currentAcademic =
-          studentData['current_academic'] as Map<String, dynamic>?;
-      final degreeType = currentAcademic?['degree_type'] as String?;
-      DateTime admissionDate;
-      if (admissionDateStr != null) {
-        admissionDate = DateTime.parse(admissionDateStr);
-      } else if (batch != null) {
-        final startYear =
-            int.tryParse(batch.split('-').first) ?? DateTime.now().year;
-        admissionDate = DateTime(startYear, 6, 1);
-      } else {
-        return _calculateFallbackSemester(calendarData);
-      }
-      final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
-      final currentSemesterStart = semesterInfo['startDate'] as DateTime;
-      final monthsDifference =
-          (currentSemesterStart.year - admissionDate.year) * 12 +
-              (currentSemesterStart.month - admissionDate.month);
-      int currentSemester;
-      if (monthsDifference < 6)
-        currentSemester = 1;
-      else if (monthsDifference < 12)
-        currentSemester = 2;
-      else if (monthsDifference < 18)
-        currentSemester = 3;
-      else if (monthsDifference < 24)
-        currentSemester = 4;
-      else if (monthsDifference < 30)
-        currentSemester = 5;
-      else
-        currentSemester = 6;
-      final totalProgramSemesters = degreeType == 'PG' ? 4 : 6;
-      return currentSemester.clamp(1, totalProgramSemesters);
-    } catch (e) {
-      return _calculateFallbackSemester(calendarData);
-    }
-  }
+int _calculateCurrentSemesterNumber(
+  Map<String, dynamic> studentProfile,
+  Map<String, dynamic> calendarData,
+) => _calculateFallbackSemester(calendarData); 
+
+// {
+//     try {
+//       if (studentProfile.isEmpty)
+//         return _calculateFallbackSemester(calendarData);
+//       final studentData = studentProfile['data'];
+//       if (studentData == null) return _calculateFallbackSemester(calendarData);
+//       final admissionDateStr = studentData['admission_date'];
+//       final batch = studentData['batch'] as String?;
+//       final currentAcademic =
+//           studentData['current_academic'] as Map<String, dynamic>?;
+//       final degreeType = currentAcademic?['degree_type'] as String?;
+//       DateTime admissionDate;
+//       if (admissionDateStr != null) {
+//         admissionDate = DateTime.parse(admissionDateStr);
+//       } else if (batch != null) {
+//         final startYear =
+//             int.tryParse(batch.split('-').first) ?? DateTime.now().year;
+//         admissionDate = DateTime(startYear, 6, 1);
+//       } else {
+//         return _calculateFallbackSemester(calendarData);
+//       }
+//       final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
+//       final currentSemesterStart = semesterInfo['startDate'] as DateTime;
+//       final monthsDifference =
+//           (currentSemesterStart.year - admissionDate.year) * 12 +
+//               (currentSemesterStart.month - admissionDate.month);
+//       int currentSemester;
+//       if (monthsDifference < 6)
+//         currentSemester = 1;
+//       else if (monthsDifference < 12)
+//         currentSemester = 2;
+//       else if (monthsDifference < 18)
+//         currentSemester = 3;
+//       else if (monthsDifference < 24)
+//         currentSemester = 4;
+//       else if (monthsDifference < 30)
+//         currentSemester = 5;
+//       else
+//         currentSemester = 6;
+//       final totalProgramSemesters = degreeType == 'PG' ? 4 : 6;
+//       return currentSemester.clamp(1, totalProgramSemesters);
+//     } catch (e) {
+//       return _calculateFallbackSemester(calendarData);
+//     }
+//   }
+
+
 
   int _calculateFallbackSemester(Map<String, dynamic> calendarData) {
     final info = _calculateCurrentSemesterInfo(calendarData);
@@ -556,21 +541,21 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       final programName = currentAcademic?['degree_name'] as String? ?? '';
       final section = currentAcademic?['section'] as String? ?? 'A';
       final batch = studentData['batch'] as String? ?? '';
+
       String getAcademicYear(String batchRange) {
         if (batchRange.isEmpty) return "1";
-        final years = batchRange.split('-');
-        if (years.length != 2) return "1";
-        int startYear = int.tryParse(years[0]) ?? DateTime.now().year;
+        final parts = batchRange.split('-');
+        if (parts.length != 2) return "1";
+        final startYear = int.tryParse(parts[0]) ?? DateTime.now().year;
         final now = DateTime.now();
-        int academicYear = 1;
-        if (now.year == startYear) {
-          academicYear = now.month >= 6 ? 1 : 0;
-        } else if (now.year == startYear + 1) {
-          academicYear = now.month >= 6 ? 2 : 1;
-        } else if (now.year == startYear + 2) {
-          academicYear = now.month >= 6 ? 3 : 2;
-        }
-        return academicYear.clamp(1, 2).toString();
+        int diff = now.year - startYear;
+        if (now.month < 6)
+          diff = diff; // even sem, same year count
+        else
+          diff += 1; // odd sem start, next year
+        // For API: year 1 = first academic year, year 2 = second, etc.
+        final academicYear = ((diff + 1) / 2).ceil().clamp(1, 4);
+        return academicYear.toString();
       }
 
       final year = getAcademicYear(batch);
@@ -1179,7 +1164,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
 
         return Container(
-          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 20),
+          padding: EdgeInsets.fromLTRB(
+              20, MediaQuery.of(context).padding.top + 16, 20, 20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
