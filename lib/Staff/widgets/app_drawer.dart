@@ -24,7 +24,7 @@ const String _kRefererUrl = 'http://117.232.64.75';
 
 class AppDrawer extends StatelessWidget {
   final bool isHod;
-  final String? currentRoute; // Add this to track current route
+  final String? currentRoute;
 
   const AppDrawer({super.key, this.isHod = false, this.currentRoute});
 
@@ -40,10 +40,6 @@ class AppDrawer extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: theme.surface,
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(0),
-            bottomRight: Radius.circular(0),
-          ),
           border: Border(right: BorderSide(color: theme.border, width: 1)),
         ),
         child: Column(
@@ -145,7 +141,6 @@ class _DrawerHeaderState extends State<_DrawerHeader> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Avatar with real photo
               Stack(
                 alignment: Alignment.bottomRight,
                 children: [
@@ -291,7 +286,6 @@ class _DrawerHeaderState extends State<_DrawerHeader> {
             ],
           ),
           const SizedBox(height: 16),
-          // Info box
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -356,7 +350,6 @@ class _DrawerHeaderState extends State<_DrawerHeader> {
                                 fontWeight: FontWeight.w600)),
                       ]),
                 ),
-                // Designation tag
                 if (!widget.isHod && designation.isNotEmpty)
                   Container(
                     padding:
@@ -526,7 +519,6 @@ class _DrawerNav extends StatelessWidget {
               ),
             ],
           ),
-          // In _DrawerNav build method, update the FACILITIES section:
           _NavSection(
             title: 'FACILITIES',
             theme: theme,
@@ -534,7 +526,7 @@ class _DrawerNav extends StatelessWidget {
               _NavItem(
                 icon: Icons.meeting_room_rounded,
                 label: 'Book Hall',
-                isSelected: _isActive('/hall-booking'), // ← Fixed route name
+                isSelected: _isActive('/hall-booking'),
                 theme: theme,
                 onTap: () => _navigateToRoute(context, '/hall-booking',
                     page: const HallBookingScreen()),
@@ -542,7 +534,7 @@ class _DrawerNav extends StatelessWidget {
               _NavItem(
                 icon: Icons.hotel_rounded,
                 label: 'Book Room',
-                isSelected: _isActive('/room-booking'), // ← Fixed route name
+                isSelected: _isActive('/room-booking'),
                 theme: theme,
                 onTap: () => _navigateToRoute(context, '/room-booking',
                     page: const RoomBookingScreen()),
@@ -574,9 +566,8 @@ class _DrawerNav extends StatelessWidget {
               context,
               '/academic-calendar',
               page: AcademicCalendarScreen(
-                rollNo:
-                    '', // For staff, pass empty string or get from somewhere
-                studentName: '', // For staff, pass empty string
+                rollNo: '',
+                studentName: '',
               ),
             ),
           ),
@@ -607,7 +598,6 @@ class _DrawerNav extends StatelessWidget {
     );
   }
 
-  // NEW: Proper navigation method that clears stack when going to Dashboard
   void _navigateToRoute(BuildContext context, String routeName,
       {Widget? page}) {
     Navigator.pop(context);
@@ -711,73 +701,79 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isSelected ? theme.cyan : theme.textMid;
 
-    // REPLACE Container with Material
+    // FIX: wrap ListTile in Material(color: transparent)
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        minLeadingWidth: 0,
-        horizontalTitleGap: 12,
-        tileColor: isSelected ? theme.cyan.withOpacity(0.08) : Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: isSelected 
-              ? BorderSide(color: theme.cyan.withOpacity(0.25)) 
-              : BorderSide.none,
-        ),
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: isSelected ? theme.cyan.withOpacity(0.15) : theme.elevated,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? theme.cyan.withOpacity(0.4) : theme.border,
-              width: isSelected ? 1 : 0.5,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          onTap: onTap,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          minLeadingWidth: 0,
+          horizontalTitleGap: 12,
+          tileColor:
+              isSelected ? theme.cyan.withOpacity(0.08) : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isSelected
+                ? BorderSide(color: theme.cyan.withOpacity(0.25))
+                : BorderSide.none,
+          ),
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isSelected ? theme.cyan.withOpacity(0.15) : theme.elevated,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? theme.cyan.withOpacity(0.4) : theme.border,
+                width: isSelected ? 1 : 0.5,
+              ),
+            ),
+            child: Icon(icon, color: color, size: 17),
+          ),
+          title: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? theme.cyan : theme.textMid,
             ),
           ),
-          child: Icon(icon, color: color, size: 17),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? theme.cyan : theme.textMid,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: theme.amber.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: theme.amber.withOpacity(0.4)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (badge != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: theme.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: theme.amber.withOpacity(0.4)),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        color: theme.amber),
+                  ),
                 ),
-                child: Text(
-                  badge!,
-                  style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: theme.amber),
-                ),
-              ),
-            if (isSelected) ...[
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded,
-                  size: 16, color: theme.cyan.withOpacity(0.6)),
+              if (isSelected) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right_rounded,
+                    size: 16, color: theme.cyan.withOpacity(0.6)),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
-
 
 class _DrawerFooter extends StatelessWidget {
   final StaffThemeProvider theme;
@@ -795,17 +791,19 @@ class _DrawerFooter extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Theme Toggle
-          Container(
-            decoration: BoxDecoration(
-              color: theme.cyan.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.cyan.withOpacity(0.2)),
-            ),
+          // Theme Toggle — FIX: Material wraps ListTile directly
+          Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               minLeadingWidth: 0,
               horizontalTitleGap: 12,
+              tileColor: theme.cyan.withOpacity(0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.cyan.withOpacity(0.2)),
+              ),
               leading: Container(
                 width: 36,
                 height: 36,
@@ -840,18 +838,20 @@ class _DrawerFooter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Logout
-          Container(
-            decoration: BoxDecoration(
-              color: theme.pink.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.pink.withOpacity(0.2)),
-            ),
+          // Logout — FIX: Material wraps ListTile directly
+          Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
             child: ListTile(
               onTap: () => _handleLogout(context, authProvider),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               minLeadingWidth: 0,
               horizontalTitleGap: 12,
+              tileColor: theme.pink.withOpacity(0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.pink.withOpacity(0.2)),
+              ),
               leading: Container(
                 width: 36,
                 height: 36,

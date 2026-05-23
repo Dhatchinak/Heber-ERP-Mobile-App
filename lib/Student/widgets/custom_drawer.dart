@@ -56,10 +56,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _studentName = widget.studentName;
 
     if (widget.fetchDrawerData != null) {
-      // Dashboard passes cached future — use directly
       _drawerDataFuture = widget.fetchDrawerData!();
     } else {
-      // Other screens — will re-assign after prefs load in _initData()
       _drawerDataFuture = Future.value(_defaultDrawerData());
     }
     _initData();
@@ -70,7 +68,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final savedRollNo = prefs.getString('rollNo') ?? '';
     final savedName = prefs.getString('studentName') ?? '';
 
-    // Synchronous state update
     if (mounted) {
       setState(() {
         if (_rollNo.isEmpty) _rollNo = savedRollNo;
@@ -78,11 +75,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       });
     }
 
-    // Fetch drawer data (only for non-dashboard screens)
     if (widget.fetchDrawerData == null && mounted) {
-      // Fetch the future (this is async, but we don't await it here)
       final future = _fetchFallbackDrawerData();
-      // Update state synchronously with the future
       if (mounted) {
         setState(() {
           _drawerDataFuture = future;
@@ -97,7 +91,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     if (mounted) setState(() => _photoLoading = true);
 
     try {
-      // Use widget's getPhotoFuture if provided (from dashboard — already cached)
       if (widget.getPhotoFuture != null) {
         final url = await widget.getPhotoFuture!()
             .timeout(const Duration(seconds: 6), onTimeout: () => null);
@@ -109,7 +102,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
         return;
       }
 
-      // Otherwise load from cache or fetch
       final effectiveRollNo = _rollNo.isNotEmpty
           ? _rollNo
           : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
@@ -146,7 +138,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
           : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
       if (rollNo.isEmpty) return _defaultDrawerData();
 
-      // All 3 fetches in parallel with individual short timeouts
       final results = await Future.wait([
         _fetchCalendarData(),
         _fetchAttendanceData(rollNo),
@@ -160,7 +151,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final semInfo = _calcSemInfo(calData);
       final att = _calcAttendancePct(attData);
 
-      // Fetch courses in parallel too — don't await sequentially
       final courses = await _fetchCoursesCount(profile)
           .timeout(const Duration(seconds: 8), onTimeout: () => 0);
 
@@ -181,7 +171,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     }
   }
 
-  // Fetch real student profile for drawer
   Future<Map<String, dynamic>> _fetchStudentProfile(String rollNo) async {
     try {
       final resp = await http.get(
@@ -197,7 +186,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return {};
   }
 
-  // Fetch real subject count from subjects API
   Future<int> _fetchCoursesCount(Map<String, dynamic> profileResp) async {
     try {
       final studentData = profileResp['data'] as Map<String, dynamic>?;
@@ -208,7 +196,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final section = currentAcademic?['section'] as String? ?? 'A';
       final batch = studentData['batch'] as String? ?? '';
 
-      // Calculate academic year from batch
       int year = 1;
       if (batch.isNotEmpty) {
         final parts = batch.split('-');
@@ -250,7 +237,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   Map<String, dynamic> _defaultDrawerData() {
-    // Dynamically detect semester from current month
     final month = DateTime.now().month;
     final isOdd = month >= 6 && month <= 11;
     return {
@@ -258,7 +244,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       'currentSemesterName': isOdd ? 'Odd Semester' : 'Even Semester',
       'weeksCompleted': 0,
       'totalWeeks': 16,
-      'currentSemesterCourses': 0, // 0 = loading, will be replaced by real data
+      'currentSemesterCourses': 0,
       'currentCGPA': 0.0,
       'attendancePercentage': 0.0,
       'isCurrentSemester': true,
@@ -566,290 +552,266 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.84,
       backgroundColor: Colors.transparent,
-      child: Material(
-        // ← ADD THIS
-        color: Colors.transparent, // ← ADD THIS
-        child: Container(
-          decoration: BoxDecoration(
-            color: c.surface,
-            border: Border(right: BorderSide(color: c.border, width: 1)),
-          ),
-          child: Column(
-            children: [
-              // ── HEADER ──────────────────────────────────────────────────────
-              Container(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  MediaQuery.of(context).padding.top + 16,
-                  20,
-                  20,
+      child: Container(
+        decoration: BoxDecoration(
+          color: c.surface,
+          border: Border(right: BorderSide(color: c.border, width: 1)),
+        ),
+        child: Column(
+          children: [
+            // ── HEADER ──────────────────────────────────────────────────────
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.of(context).padding.top + 16,
+                20,
+                20,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [c.elevated, c.elevated2],
                 ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [c.elevated, c.elevated2],
-                  ),
-                  border: Border(bottom: BorderSide(color: c.border, width: 1)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Photo
-                        _buildPhotoWidget(c),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                displayName,
+                border: Border(bottom: BorderSide(color: c.border, width: 1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPhotoWidget(c),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: TextStyle(
+                                color: c.textHigh,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: c.cyan.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: c.cyan.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                displayRollNo.isNotEmpty
+                                    ? displayRollNo
+                                    : 'Loading...',
                                 style: TextStyle(
-                                  color: c.textHigh,
-                                  fontSize: 15,
+                                  color: c.cyan,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  height: 1.2,
+                                  letterSpacing: 0.5,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 6),
-                              // Roll No chip
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: c.cyan.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: c.cyan.withOpacity(0.3)),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                      color: c.green, shape: BoxShape.circle),
                                 ),
-                                child: Text(
-                                  displayRollNo.isNotEmpty
-                                      ? displayRollNo
-                                      : 'Loading...',
+                                const SizedBox(width: 5),
+                                Text(
+                                  "Active Student",
                                   style: TextStyle(
-                                    color: c.cyan,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.5,
-                                  ),
+                                      color: c.textMid,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: BoxDecoration(
-                                        color: c.green, shape: BoxShape.circle),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    "Active Student",
-                                    style: TextStyle(
-                                        color: c.textMid,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // ── STATS ────────────────────────────────────────────────
-                    FutureBuilder<Map<String, dynamic>>(
-                      future: _drawerDataFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return _buildLoadingStats(c); // Add loading state
-                        }
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // ── STATS ────────────────────────────────────────────────
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _drawerDataFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return _buildLoadingStats(c);
+                      }
+                      if (snapshot.hasError) {
+                        return _buildErrorStats(c);
+                      }
 
-                        if (snapshot.hasError) {
-                          return _buildErrorStats(c); // Add error state
-                        }
+                      final data = snapshot.data ?? _defaultDrawerData();
+                      final semester = data['currentSemester'] ?? 1;
+                      final semesterName =
+                          data['currentSemesterName'] ?? 'Semester';
+                      final weeksCompleted = data['weeksCompleted'] ?? 0;
+                      final totalWeeks = data['totalWeeks'] ?? 16;
+                      final courses = data['currentSemesterCourses'] ?? 6;
+                      final attendancePct =
+                          (data['attendancePercentage'] ?? 0.0) as double;
 
-                        final data = snapshot.data ?? _defaultDrawerData();
-                        final semester = data?['currentSemester'] ?? 1;
-                        final semesterName =
-                            data?['currentSemesterName'] ?? 'Semester';
-                        final weeksCompleted = data?['weeksCompleted'] ?? 0;
-                        final totalWeeks = data?['totalWeeks'] ?? 16;
-                        final courses = data?['currentSemesterCourses'] ?? 6;
-                        final attendancePct =
-                            (data?['attendancePercentage'] ?? 0.0) as double;
-                        final isLoading =
-                            snapshot.connectionState == ConnectionState.waiting;
-
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: c.bg.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: c.border),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(semesterName,
-                                      style: TextStyle(
-                                          color: c.textHigh,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600)),
-                                  Text("Week $weeksCompleted/$totalWeeks",
-                                      style: TextStyle(
-                                          color: c.textMid, fontSize: 11)),
-                                ],
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: c.bg.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: c.border),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(semesterName,
+                                    style: TextStyle(
+                                        color: c.textHigh,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600)),
+                                Text("Week $weeksCompleted/$totalWeeks",
+                                    style: TextStyle(
+                                        color: c.textMid, fontSize: 11)),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: totalWeeks > 0
+                                    ? (weeksCompleted / totalWeeks)
+                                        .clamp(0.0, 1.0)
+                                    : 0,
+                                backgroundColor: c.border,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(c.cyan),
+                                minHeight: 4,
                               ),
-                              const SizedBox(height: 10),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: totalWeeks > 0
-                                      ? (weeksCompleted / totalWeeks)
-                                          .clamp(0.0, 1.0)
-                                      : 0,
-                                  backgroundColor: c.border,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(c.cyan),
-                                  minHeight: 4,
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _drawerStat(
+                                  (data['usingFallback'] == true)
+                                      ? (semesterName.replaceAll(
+                                          ' Semester', ''))
+                                      : _getOrdinalSemester(semester),
+                                  "SEM",
+                                  c.violet,
+                                  c,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              isLoading
-                                  ? Center(
-                                      child: SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: c.cyan),
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceAround,
-                                      children: [
-                                        _drawerStat(
-                                          (data?['usingFallback'] == true)
-                                              ? (semesterName.replaceAll(
-                                                  ' Semester',
-                                                  '')) // "Even" or "Odd"
-                                              : _getOrdinalSemester(
-                                                  semester), // "2nd" when profile loaded
-                                          "SEM",
-                                          c.violet,
-                                          c,
-                                        ),
-                                        _vDivider(c),
-                                        _drawerStat(
-                                            courses == 0 ? "…" : "$courses",
-                                            "COURSES",
-                                            c.cyan,
-                                            c),
-                                        _vDivider(c),
-                                        _drawerStat(
-                                            "${attendancePct.toStringAsFixed(0)}%",
-                                            "ATTEND",
-                                            c.green,
-                                            c),
-                                      ],
-                                    ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                                _vDivider(c),
+                                _drawerStat(
+                                    courses == 0 ? "…" : "$courses",
+                                    "COURSES",
+                                    c.cyan,
+                                    c),
+                                _vDivider(c),
+                                _drawerStat(
+                                    "${attendancePct.toStringAsFixed(0)}%",
+                                    "ATTEND",
+                                    c.green,
+                                    c),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // ── NAV ITEMS ───────────────────────────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  children: [
+                    _navGroup("MAIN", [
+                      _navItem(Icons.dashboard_rounded, "Dashboard", c.cyan,
+                          isDashboard, c,
+                          onTap: () => _navigateTo(MainPage(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                    ]),
+                    _navGroup("ACADEMICS", [
+                      _navItem(Icons.person_rounded, "My Profile", c.violet,
+                          isProfile, c,
+                          onTap: () => _navigateTo(ProfileScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                      _navItem(Icons.schedule_rounded, "Timetable", c.cyan,
+                          isTimetable, c,
+                          onTap: () => _navigateTo(
+                              TimetableScreen(rollNo: displayRollNo))),
+                      _navItem(Icons.subject_rounded, "Subjects", c.green,
+                          isSubjects, c,
+                          onTap: () => _navigateTo(SubjectsPage(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                      _navItem(Icons.school_rounded, "Student Mentor", c.amber,
+                          isMentor, c,
+                          onTap: () => _navigateTo(MentorScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                    ]),
+                    _navGroup("ATTENDANCE", [
+                      _navItem(Icons.calendar_today_rounded, "Daily Attendance",
+                          c.cyan, isAttendance, c,
+                          onTap: () => _navigateTo(AttendanceScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                      _navItem(Icons.leave_bags_at_home_rounded,
+                          "Leave Management", c.pink, isLeave, c,
+                          onTap: () => _navigateTo(LeaveManagementScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                    ]),
+                    _navGroup("EXAMINATIONS", [
+                      _navItem(Icons.grade_rounded, "Exam Results", c.green,
+                          isExamResults, c,
+                          onTap: () => _navigateTo(ExamResultsPage(
+                              studentName: displayName,
+                              rollNo: displayRollNo))),
+                      _navItem(Icons.chair_rounded, "Seating Arrangement",
+                          c.violet, isSeating, c,
+                          onTap: () => _navigateTo(SeatingArrangementPage(
+                              studentName: displayName,
+                              rollNo: displayRollNo))),
+                    ]),
+                    _navGroup("CAMPUS", [
+                      _navItem(Icons.event_rounded, "Academic Calendar",
+                          c.amber, isCalendar, c,
+                          onTap: () => _navigateTo(AcademicCalendarScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                    ]),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
+            ),
 
-              // ── NAV ITEMS ───────────────────────────────────────────────────
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    children: [
-                      _navGroup("MAIN", [
-                        _navItem(Icons.dashboard_rounded, "Dashboard", c.cyan,
-                            isDashboard, c,
-                            onTap: () => _navigateTo(MainPage(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                      ]),
-                      _navGroup("ACADEMICS", [
-                        _navItem(Icons.person_rounded, "My Profile", c.violet,
-                            isProfile, c,
-                            onTap: () => _navigateTo(ProfileScreen(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                        _navItem(Icons.schedule_rounded, "Timetable", c.cyan,
-                            isTimetable, c,
-                            onTap: () => _navigateTo(
-                                TimetableScreen(rollNo: displayRollNo))),
-                        // In custom_drawer.dart - UPDATE THIS:
-                        _navItem(Icons.subject_rounded, "Subjects", c.green,
-                            isSubjects, c,
-                            onTap: () => _navigateTo(SubjectsPage(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                        _navItem(Icons.school_rounded, "Student Mentor",
-                            c.amber, isMentor, c,
-                            onTap: () => _navigateTo(MentorScreen(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                      ]),
-                      _navGroup("ATTENDANCE", [
-                        _navItem(Icons.calendar_today_rounded,
-                            "Daily Attendance", c.cyan, isAttendance, c,
-                            onTap: () => _navigateTo(AttendanceScreen(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                        _navItem(Icons.leave_bags_at_home_rounded,
-                            "Leave Management", c.pink, isLeave, c,
-                            onTap: () => _navigateTo(LeaveManagementScreen(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                      ]),
-                      _navGroup("EXAMINATIONS", [
-                        _navItem(Icons.grade_rounded, "Exam Results", c.green,
-                            isExamResults, c,
-                            onTap: () => _navigateTo(ExamResultsPage(
-                                studentName: displayName,
-                                rollNo: displayRollNo))),
-                        _navItem(Icons.chair_rounded, "Seating Arrangement",
-                            c.violet, isSeating, c,
-                            onTap: () => _navigateTo(SeatingArrangementPage(
-                                studentName: displayName,
-                                rollNo: displayRollNo))),
-                      ]),
-                      _navGroup("CAMPUS", [
-                        _navItem(Icons.event_rounded, "Academic Calendar",
-                            c.amber, isCalendar, c,
-                            onTap: () => _navigateTo(AcademicCalendarScreen(
-                                rollNo: displayRollNo,
-                                studentName: displayName))),
-                      ]),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ── FOOTER ──────────────────────────────────────────────────────
-              _buildDrawerFooter(c),
-            ],
-          ),
+            // ── FOOTER ──────────────────────────────────────────────────────
+            _buildDrawerFooter(c),
+          ],
         ),
       ),
     );
@@ -906,13 +868,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
         child: ListTile(
           tileColor: isSelected ? color.withOpacity(0.08) : Colors.transparent,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           minLeadingWidth: 0,
           horizontalTitleGap: 12,
-          // tileColor: isSelected ? color.withOpacity(0.08) : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: isSelected
@@ -966,74 +928,87 @@ class _CustomDrawerState extends State<CustomDrawer> {
               BoxDecoration(border: Border(top: BorderSide(color: c.border))),
           child: Column(
             children: [
-              // Theme Toggle - NO Container wrapper
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                minLeadingWidth: 0,
-                horizontalTitleGap: 12,
-                tileColor: c.cyan.withOpacity(0.08),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: c.cyan.withOpacity(0.2)),
-                ),
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: c.cyan.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
+              // Theme Toggle
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12),
+                  minLeadingWidth: 0,
+                  horizontalTitleGap: 12,
+                  tileColor: c.cyan.withOpacity(0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: c.cyan.withOpacity(0.2)),
                   ),
-                  child: Icon(
-                    themeProvider.isDarkMode
-                        ? Icons.dark_mode_rounded
-                        : Icons.light_mode_rounded,
-                    color: c.cyan,
-                    size: 17,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: c.cyan.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      themeProvider.isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      color: c.cyan,
+                      size: 17,
+                    ),
                   ),
+                  title: Text(
+                    themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
+                    style: TextStyle(
+                        color: c.textHigh,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700),
+                  ),
+                  trailing: Switch(
+                    value: themeProvider.isDarkMode,
+                    onChanged: (_) => themeProvider.toggleTheme(),
+                    activeColor: c.cyan,
+                    activeTrackColor: c.cyan.withOpacity(0.3),
+                    inactiveThumbColor: c.textMid,
+                    inactiveTrackColor: c.border,
+                  ),
+                  onTap: () => themeProvider.toggleTheme(),
                 ),
-                title: Text(
-                  themeProvider.isDarkMode ? "Dark Mode" : "Light Mode",
-                  style: TextStyle(
-                      color: c.textHigh,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700),
-                ),
-                trailing: Switch(
-                  value: themeProvider.isDarkMode,
-                  onChanged: (_) => themeProvider.toggleTheme(),
-                  activeColor: c.cyan,
-                  activeTrackColor: c.cyan.withOpacity(0.3),
-                  inactiveThumbColor: c.textMid,
-                  inactiveTrackColor: c.border,
-                ),
-                onTap: () => themeProvider.toggleTheme(),
               ),
               const SizedBox(height: 8),
-              // Logout - NO Container wrapper
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                minLeadingWidth: 0,
-                horizontalTitleGap: 12,
-                tileColor: c.pink.withOpacity(0.08),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: c.pink.withOpacity(0.2)),
-                ),
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: c.pink.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
+              // Logout
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12),
+                  minLeadingWidth: 0,
+                  horizontalTitleGap: 12,
+                  tileColor: c.pink.withOpacity(0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: c.pink.withOpacity(0.2)),
                   ),
-                  child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: c.pink.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child:
+                        Icon(Icons.logout_rounded, color: c.pink, size: 17),
+                  ),
+                  title: Text(
+                    "Logout",
+                    style: TextStyle(
+                        color: c.pink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700),
+                  ),
+                  onTap: _handleLogout,
                 ),
-                title: Text(
-                  "Logout",
-                  style: TextStyle(
-                      color: c.pink, fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-                onTap: _handleLogout,
               ),
               const SizedBox(height: 10),
               Text("Heber ERP v1.0.0",
@@ -1081,11 +1056,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return {};
   }
 
-// In custom_drawer.dart - REPLACE _calcSemInfo method:
   Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
     final now = DateTime.now();
 
-    // Try to detect from calendar dates first
     if (cal.isNotEmpty) {
       for (final entry in [
         {'key': 'sem_odd', 'sem': 1, 'name': 'Odd Semester'},
@@ -1119,7 +1092,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
       }
     }
 
-    // Fallback: use month-based detection
     final isOdd = now.month >= 6 && now.month <= 11;
     final currentYear = now.year;
     DateTime startDate;
@@ -1137,7 +1109,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
     final weeksCompleted = now.isBefore(startDate)
         ? 0
-        : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
+        : ((now.difference(startDate).inDays) / 7)
+            .floor()
+            .clamp(0, totalWeeks);
 
     return {
       'semester': isOdd ? 1 : 2,
@@ -1149,7 +1123,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   double _calcAttendancePct(Map<String, dynamic> data) {
     try {
-      // Shape A: { attendance: [ {sem_even: [...], sem_odd: [...]} ] }
       if (data['attendance'] is List) {
         final list = data['attendance'] as List;
         if (list.isEmpty) return 0.0;
@@ -1172,7 +1145,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1) totalAbsent += 0.5;
+                else if (absent >= 1)
+                  totalAbsent += 0.5;
               });
             }
           }
@@ -1182,7 +1156,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
             : 0.0;
       }
 
-      // Shape B: { success: true, data: [ { attendance: { sem_even: [...] } } ] }
       if (data['success'] == true && data['data'] is List) {
         final dataList = data['data'] as List;
         if (dataList.isEmpty) return 0.0;
@@ -1206,7 +1179,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1) totalAbsent += 0.5;
+                else if (absent >= 1)
+                  totalAbsent += 0.5;
               });
             }
           }
