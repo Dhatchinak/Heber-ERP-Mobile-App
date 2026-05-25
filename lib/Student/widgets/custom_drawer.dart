@@ -56,10 +56,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _studentName = widget.studentName;
 
     if (widget.fetchDrawerData != null) {
-      // Dashboard passes cached future — use directly
       _drawerDataFuture = widget.fetchDrawerData!();
     } else {
-      // Other screens — will re-assign after prefs load in _initData()
       _drawerDataFuture = Future.value(_defaultDrawerData());
     }
     _initData();
@@ -70,7 +68,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final savedRollNo = prefs.getString('rollNo') ?? '';
     final savedName = prefs.getString('studentName') ?? '';
 
-    // Synchronous state update
     if (mounted) {
       setState(() {
         if (_rollNo.isEmpty) _rollNo = savedRollNo;
@@ -78,11 +75,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       });
     }
 
-    // Fetch drawer data (only for non-dashboard screens)
     if (widget.fetchDrawerData == null && mounted) {
-      // Fetch the future (this is async, but we don't await it here)
       final future = _fetchFallbackDrawerData();
-      // Update state synchronously with the future
       if (mounted) {
         setState(() {
           _drawerDataFuture = future;
@@ -97,7 +91,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     if (mounted) setState(() => _photoLoading = true);
 
     try {
-      // Use widget's getPhotoFuture if provided (from dashboard — already cached)
       if (widget.getPhotoFuture != null) {
         final url = await widget.getPhotoFuture!()
             .timeout(const Duration(seconds: 6), onTimeout: () => null);
@@ -109,7 +102,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
         return;
       }
 
-      // Otherwise load from cache or fetch
       final effectiveRollNo = _rollNo.isNotEmpty
           ? _rollNo
           : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
@@ -146,7 +138,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
           : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
       if (rollNo.isEmpty) return _defaultDrawerData();
 
-      // All 3 fetches in parallel with individual short timeouts
       final results = await Future.wait([
         _fetchCalendarData(),
         _fetchAttendanceData(rollNo),
@@ -160,7 +151,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final semInfo = _calcSemInfo(calData);
       final att = _calcAttendancePct(attData);
 
-      // Fetch courses in parallel too — don't await sequentially
       final courses = await _fetchCoursesCount(profile)
           .timeout(const Duration(seconds: 8), onTimeout: () => 0);
 
@@ -181,7 +171,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     }
   }
 
-  // Fetch real student profile for drawer
   Future<Map<String, dynamic>> _fetchStudentProfile(String rollNo) async {
     try {
       final resp = await http.get(
@@ -197,7 +186,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return {};
   }
 
-  // Fetch real subject count from subjects API
   Future<int> _fetchCoursesCount(Map<String, dynamic> profileResp) async {
     try {
       final studentData = profileResp['data'] as Map<String, dynamic>?;
@@ -208,7 +196,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final section = currentAcademic?['section'] as String? ?? 'A';
       final batch = studentData['batch'] as String? ?? '';
 
-      // Calculate academic year from batch
       int year = 1;
       if (batch.isNotEmpty) {
         final parts = batch.split('-');
@@ -250,7 +237,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   Map<String, dynamic> _defaultDrawerData() {
-    // Dynamically detect semester from current month
     final month = DateTime.now().month;
     final isOdd = month >= 6 && month <= 11;
     return {
@@ -258,7 +244,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       'currentSemesterName': isOdd ? 'Odd Semester' : 'Even Semester',
       'weeksCompleted': 0,
       'totalWeeks': 16,
-      'currentSemesterCourses': 0, // 0 = loading, will be replaced by real data
+      'currentSemesterCourses': 0,
       'currentCGPA': 0.0,
       'attendancePercentage': 0.0,
       'isCurrentSemester': true,
@@ -595,7 +581,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Photo
                       _buildPhotoWidget(c),
                       const SizedBox(width: 14),
                       Expanded(
@@ -614,15 +599,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 6),
-                            // Roll No chip
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: c.cyan.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border:
-                                    Border.all(color: c.cyan.withOpacity(0.3)),
+                                border: Border.all(
+                                    color: c.cyan.withOpacity(0.3)),
                               ),
                               child: Text(
                                 displayRollNo.isNotEmpty
@@ -666,24 +650,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     future: _drawerDataFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return _buildLoadingStats(c); // Add loading state
+                        return _buildLoadingStats(c);
                       }
-
                       if (snapshot.hasError) {
-                        return _buildErrorStats(c); // Add error state
+                        return _buildErrorStats(c);
                       }
 
                       final data = snapshot.data ?? _defaultDrawerData();
-                      final semester = data?['currentSemester'] ?? 1;
+                      final semester = data['currentSemester'] ?? 1;
                       final semesterName =
-                          data?['currentSemesterName'] ?? 'Semester';
-                      final weeksCompleted = data?['weeksCompleted'] ?? 0;
-                      final totalWeeks = data?['totalWeeks'] ?? 16;
-                      final courses = data?['currentSemesterCourses'] ?? 6;
+                          data['currentSemesterName'] ?? 'Semester';
+                      final weeksCompleted = data['weeksCompleted'] ?? 0;
+                      final totalWeeks = data['totalWeeks'] ?? 16;
+                      final courses = data['currentSemesterCourses'] ?? 6;
                       final attendancePct =
-                          (data?['attendancePercentage'] ?? 0.0) as double;
-                      final isLoading =
-                          snapshot.connectionState == ConnectionState.waiting;
+                          (data['attendancePercentage'] ?? 0.0) as double;
 
                       return Container(
                         padding: const EdgeInsets.all(14),
@@ -722,44 +703,32 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            isLoading
-                                ? Center(
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: c.cyan),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
-                                    children: [
-                                      _drawerStat(
-                                        (data?['usingFallback'] == true)
-                                            ? (semesterName.replaceAll(
-                                                ' Semester',
-                                                '')) // "Even" or "Odd"
-                                            : _getOrdinalSemester(
-                                                semester), // "2nd" when profile loaded
-                                        "SEM",
-                                        c.violet,
-                                        c,
-                                      ),
-                                      _vDivider(c),
-                                      _drawerStat(
-                                          courses == 0 ? "…" : "$courses",
-                                          "COURSES",
-                                          c.cyan,
-                                          c),
-                                      _vDivider(c),
-                                      _drawerStat(
-                                          "${attendancePct.toStringAsFixed(0)}%",
-                                          "ATTEND",
-                                          c.green,
-                                          c),
-                                    ],
-                                  ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _drawerStat(
+                                  (data['usingFallback'] == true)
+                                      ? (semesterName.replaceAll(
+                                          ' Semester', ''))
+                                      : _getOrdinalSemester(semester),
+                                  "SEM",
+                                  c.violet,
+                                  c,
+                                ),
+                                _vDivider(c),
+                                _drawerStat(
+                                    courses == 0 ? "…" : "$courses",
+                                    "COURSES",
+                                    c.cyan,
+                                    c),
+                                _vDivider(c),
+                                _drawerStat(
+                                    "${attendancePct.toStringAsFixed(0)}%",
+                                    "ATTEND",
+                                    c.green,
+                                    c),
+                              ],
+                            ),
                           ],
                         ),
                       );
@@ -792,7 +761,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           isTimetable, c,
                           onTap: () => _navigateTo(
                               TimetableScreen(rollNo: displayRollNo))),
-                      // In custom_drawer.dart - UPDATE THIS:
                       _navItem(Icons.subject_rounded, "Subjects", c.green,
                           isSubjects, c,
                           onTap: () => _navigateTo(SubjectsPage(
@@ -888,44 +856,65 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
   }
 
-  Widget _navItem(IconData icon, String title, Color color, bool isSelected,
-      ThemeProvider c,
-      {required VoidCallback onTap}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected ? color.withOpacity(0.08) : Colors.transparent,
+  Widget _navItem(
+    IconData icon,
+    String title,
+    Color color,
+    bool isSelected,
+    ThemeProvider c, {
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: isSelected ? Border.all(color: color.withOpacity(0.25)) : null,
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        minLeadingWidth: 0,
-        horizontalTitleGap: 12,
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.15) : c.elevated,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? color.withOpacity(0.4) : c.border,
-              width: isSelected ? 1 : 0.5,
+        child: ListTile(
+          tileColor: isSelected ? color.withOpacity(0.08) : Colors.transparent,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          minLeadingWidth: 0,
+          horizontalTitleGap: 12,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isSelected
+                ? BorderSide(color: color.withOpacity(0.25))
+                : BorderSide.none,
+          ),
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isSelected ? color.withOpacity(0.15) : c.elevated,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? color.withOpacity(0.4) : c.border,
+                width: isSelected ? 1 : 0.5,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? color : c.textMid,
+              size: 17,
             ),
           ),
-          child: Icon(icon, color: isSelected ? color : c.textMid, size: 17),
-        ),
-        title: Text(title,
+          title: Text(
+            title,
             style: TextStyle(
               color: isSelected ? color : c.textMid,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            )),
-        trailing: isSelected
-            ? Icon(Icons.chevron_right_rounded,
-                color: color.withOpacity(0.6), size: 16)
-            : null,
-        onTap: onTap,
+            ),
+          ),
+          trailing: isSelected
+              ? Icon(
+                  Icons.chevron_right_rounded,
+                  color: color.withOpacity(0.6),
+                  size: 16,
+                )
+              : null,
+          onTap: onTap,
+        ),
       ),
     );
   }
@@ -939,16 +928,20 @@ class _CustomDrawerState extends State<CustomDrawer> {
               BoxDecoration(border: Border(top: BorderSide(color: c.border))),
           child: Column(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: c.cyan.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: c.cyan.withOpacity(0.2)),
-                ),
+              // Theme Toggle
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12),
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
+                  tileColor: c.cyan.withOpacity(0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: c.cyan.withOpacity(0.2)),
+                  ),
                   leading: Container(
                     width: 36,
                     height: 36,
@@ -983,16 +976,20 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: c.pink.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: c.pink.withOpacity(0.2)),
-                ),
+              // Logout
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12),
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
+                  tileColor: c.pink.withOpacity(0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: c.pink.withOpacity(0.2)),
+                  ),
                   leading: Container(
                     width: 36,
                     height: 36,
@@ -1000,13 +997,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       color: c.pink.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
+                    child:
+                        Icon(Icons.logout_rounded, color: c.pink, size: 17),
                   ),
-                  title: Text("Logout",
-                      style: TextStyle(
-                          color: c.pink,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700)),
+                  title: Text(
+                    "Logout",
+                    style: TextStyle(
+                        color: c.pink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700),
+                  ),
                   onTap: _handleLogout,
                 ),
               ),
@@ -1056,72 +1056,73 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return {};
   }
 
-// In custom_drawer.dart - REPLACE _calcSemInfo method:
-Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
-  final now = DateTime.now();
-  
-  // Try to detect from calendar dates first
-  if (cal.isNotEmpty) {
-    for (final entry in [
-      {'key': 'sem_odd', 'sem': 1, 'name': 'Odd Semester'},
-      {'key': 'sem_even', 'sem': 2, 'name': 'Even Semester'},
-    ]) {
-      final sem = cal[entry['key']] as Map<String, dynamic>?;
-      if (sem != null && sem['startDate'] != null && sem['endDate'] != null) {
-        try {
-          final s = DateTime.parse(sem['startDate']);
-          final e = DateTime.parse(sem['endDate']);
-          if (now.isAfter(s.subtract(const Duration(days: 1))) &&
-              now.isBefore(e.add(const Duration(days: 1)))) {
-            final totalWeeks = ((e.difference(s).inDays) / 7).ceil().clamp(1, 26);
-            final weeksCompleted = now.isBefore(s)
-                ? 0
-                : ((now.difference(s).inDays) / 7).floor().clamp(0, totalWeeks);
-            return {
-              'semester': entry['sem'],
-              'semesterName': entry['name'],
-              'weeksCompleted': weeksCompleted,
-              'totalWeeks': totalWeeks,
-            };
+  Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
+    final now = DateTime.now();
+
+    if (cal.isNotEmpty) {
+      for (final entry in [
+        {'key': 'sem_odd', 'sem': 1, 'name': 'Odd Semester'},
+        {'key': 'sem_even', 'sem': 2, 'name': 'Even Semester'},
+      ]) {
+        final sem = cal[entry['key']] as Map<String, dynamic>?;
+        if (sem != null && sem['startDate'] != null && sem['endDate'] != null) {
+          try {
+            final s = DateTime.parse(sem['startDate']);
+            final e = DateTime.parse(sem['endDate']);
+            if (now.isAfter(s.subtract(const Duration(days: 1))) &&
+                now.isBefore(e.add(const Duration(days: 1)))) {
+              final totalWeeks =
+                  ((e.difference(s).inDays) / 7).ceil().clamp(1, 26);
+              final weeksCompleted = now.isBefore(s)
+                  ? 0
+                  : ((now.difference(s).inDays) / 7)
+                      .floor()
+                      .clamp(0, totalWeeks);
+              return {
+                'semester': entry['sem'],
+                'semesterName': entry['name'],
+                'weeksCompleted': weeksCompleted,
+                'totalWeeks': totalWeeks,
+              };
+            }
+          } catch (e) {
+            debugPrint('Error parsing dates: $e');
           }
-        } catch (e) {
-          debugPrint('Error parsing dates: $e');
         }
       }
     }
-  }
-  
-  // Fallback: use month-based detection
-  final isOdd = now.month >= 6 && now.month <= 11;
-  final currentYear = now.year;
-  DateTime startDate;
-  DateTime endDate;
-  
-  if (isOdd) {
-    startDate = DateTime(currentYear, 6, 1);
-    endDate = DateTime(currentYear, 11, 30);
-  } else {
-    startDate = DateTime(currentYear, 12, 1);
-    endDate = DateTime(currentYear + 1, 5, 31);
-  }
-  
-  final totalWeeks = ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
-  final weeksCompleted = now.isBefore(startDate)
-      ? 0
-      : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
-  
-  return {
-    'semester': isOdd ? 1 : 2,
-    'semesterName': isOdd ? 'Odd Semester' : 'Even Semester',
-    'weeksCompleted': weeksCompleted,
-    'totalWeeks': totalWeeks,
-  };
-}
 
+    final isOdd = now.month >= 6 && now.month <= 11;
+    final currentYear = now.year;
+    DateTime startDate;
+    DateTime endDate;
+
+    if (isOdd) {
+      startDate = DateTime(currentYear, 6, 1);
+      endDate = DateTime(currentYear, 11, 30);
+    } else {
+      startDate = DateTime(currentYear, 12, 1);
+      endDate = DateTime(currentYear + 1, 5, 31);
+    }
+
+    final totalWeeks =
+        ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
+    final weeksCompleted = now.isBefore(startDate)
+        ? 0
+        : ((now.difference(startDate).inDays) / 7)
+            .floor()
+            .clamp(0, totalWeeks);
+
+    return {
+      'semester': isOdd ? 1 : 2,
+      'semesterName': isOdd ? 'Odd Semester' : 'Even Semester',
+      'weeksCompleted': weeksCompleted,
+      'totalWeeks': totalWeeks,
+    };
+  }
 
   double _calcAttendancePct(Map<String, dynamic> data) {
     try {
-      // Shape A: { attendance: [ {sem_even: [...], sem_odd: [...]} ] }
       if (data['attendance'] is List) {
         final list = data['attendance'] as List;
         if (list.isEmpty) return 0.0;
@@ -1144,7 +1145,8 @@ Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1) totalAbsent += 0.5;
+                else if (absent >= 1)
+                  totalAbsent += 0.5;
               });
             }
           }
@@ -1154,7 +1156,6 @@ Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
             : 0.0;
       }
 
-      // Shape B: { success: true, data: [ { attendance: { sem_even: [...] } } ] }
       if (data['success'] == true && data['data'] is List) {
         final dataList = data['data'] as List;
         if (dataList.isEmpty) return 0.0;
@@ -1178,7 +1179,8 @@ Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1) totalAbsent += 0.5;
+                else if (absent >= 1)
+                  totalAbsent += 0.5;
               });
             }
           }
@@ -1192,42 +1194,43 @@ Map<String, dynamic> _calcSemInfo(Map<String, dynamic> cal) {
       return 0.0;
     }
   }
-  
-Widget _buildLoadingStats(ThemeProvider c) {
-  return Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: c.bg.withOpacity(0.5),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: c.border),
-    ),
-    child: Center(
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
-      ),
-    ),
-  );
-}
 
-Widget _buildErrorStats(ThemeProvider c) {
-  return Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: c.bg.withOpacity(0.5),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: c.pink.withOpacity(0.3)),
-    ),
-    child: Column(
-      children: [
-        Icon(Icons.error_outline, color: c.pink, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          "Failed to load stats",
-          style: TextStyle(color: c.textMid, fontSize: 12),
+  Widget _buildLoadingStats(ThemeProvider c) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.bg.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.border),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
         ),
-      ],
-    ),
-  );
-}}
+      ),
+    );
+  }
+
+  Widget _buildErrorStats(ThemeProvider c) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.bg.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.pink.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline, color: c.pink, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            "Failed to load stats",
+            style: TextStyle(color: c.textMid, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
