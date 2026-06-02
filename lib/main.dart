@@ -47,7 +47,7 @@ class _AppRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<AppThemeProvider>();
-    final auth  = context.watch<AuthProvider>();
+    final auth = context.watch<AuthProvider>();
 
     return MaterialApp(
       title: 'BHC ERP',
@@ -56,7 +56,7 @@ class _AppRoot extends StatelessWidget {
       builder: (context, child) => child!,
       home: SplashScreen(nextScreen: _resolveHome(context, auth, theme)),
       routes: {
-        '/login':           (_) => const UnifiedLoginScreen(),
+        '/login': (_) => const UnifiedLoginScreen(),
         '/staff-dashboard': (_) => const StaffDashboard(),
       },
       onGenerateRoute: (settings) {
@@ -69,9 +69,9 @@ class _AppRoot extends StatelessWidget {
     );
   }
 
-  Widget _resolveHome(BuildContext context, AuthProvider auth, AppThemeProvider theme) {
+  Widget _resolveHome(
+      BuildContext context, AuthProvider auth, AppThemeProvider theme) {
     if (auth.isLoading) {
-      // Uses theme colors — no hardcoded hex
       return Scaffold(
         backgroundColor: theme.bg,
         body: Center(
@@ -82,7 +82,7 @@ class _AppRoot extends StatelessWidget {
     if (!auth.isAuthenticated) return const UnifiedLoginScreen();
     if (auth.userType == UserType.student) {
       return MainPage(
-        rollNo:      auth.studentRollNo ?? '',
+        rollNo: auth.studentRollNo ?? '',
         studentName: auth.studentName ?? 'Student',
       );
     }
@@ -100,8 +100,9 @@ PageRouteBuilder _fadeSlideRoute(Widget page) {
         opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
         child: SlideTransition(
           position: Tween<Offset>(
-                  begin: const Offset(0, 0.03), end: Offset.zero)
-              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+            begin: const Offset(0, 0.03),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
           child: child,
         ),
       );

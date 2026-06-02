@@ -1,5 +1,6 @@
 ﻿import 'dart:ui' as ui;
 
+import 'package:bhc_erp/Student/providers/display_mode_provider.dart';
 import 'package:bhc_erp/Student/screens/academic_calendar.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
@@ -13,6 +14,8 @@ import 'package:bhc_erp/Student/services/photo_service.dart';
 import 'package:bhc_erp/Student/theme_provider.dart';
 import 'package:bhc_erp/Student/widgets/custom_drawer.dart';
 import 'package:bhc_erp/Student/widgets/student_photo_widget.dart';
+import 'package:bhc_erp/Student/services/avatar_service.dart';
+import 'package:bhc_erp/Student/widgets/avatar_painter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -26,28 +29,11 @@ import 'dart:convert';
 import 'package:bhc_erp/Student/screens/campus_pet_game.dart';
 import 'package:flutter/services.dart';
 
-// ─── Color System ────────────────────────────────────────────────────────────
-// DARK FUTURISTIC PALETTE
-// Primary BG:  #0A0E1A (deep navy black)
-// Surface:     #0F1628 (card background)
-// Elevated:    #151D35 (elevated cards)
-// Border:      #1E2D4A (subtle borders)
-// Accent Cyan: #00D4FF (primary neon)
-// Accent Violet:#7C3AED (secondary)
-// Accent Pink: #F472B6 (danger/warm)
-// Accent Green:#10F5A8 (success neon)
-// Text High:   #E2E8FF (primary text)
-// Text Mid:    #7B8DB8 (secondary text)
-// Text Low:    #3A4A6B (muted text)
-
 const String baseApiUrl = 'https://apierp.bhc.edu.in';
 const String refererUrl = 'http://117.232.64.75';
 
-// In-memory profile cache to avoid duplicate API calls
 Map<String, dynamic>? _cachedProfile;
 String? _cachedProfileRoll;
-
-// _C is now handled dynamically via ThemeProvider in build methods
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,14 +52,27 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ThemeProvider is registered in the root MultiProvider (main.dart).
-    // We just return the page directly — no nested MaterialApp needed.
     if (rollNo != null && studentName != null && dob != null) {
       return MainPage(rollNo: rollNo!, studentName: studentName!);
     }
     return const UnifiedLoginScreen();
   }
 }
+
+// class MyApp extends StatelessWidget {
+//   final String? rollNo;
+//   final String? studentName;
+//   final String? dob;
+//   const MyApp({super.key, this.rollNo, this.studentName, this.dob});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     if (rollNo != null && studentName != null && dob != null) {
+//       return MainPage(rollNo: rollNo!, studentName: studentName!);
+//     }
+//     return const UnifiedLoginScreen();
+//   }
+// }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN PAGE
@@ -97,9 +96,11 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   late AnimationController _appBarGlow;
   late AnimationController _secretUnlockCtrl;
 
-  // Secret unlock: tap profile 5× in 3 s
   int _profileTapCount = 0;
   DateTime? _firstTapTime;
+
+  // Avatar config — provider is the source of truth for showAvatar
+  AvatarConfig? _avatarConfig;
 
   @override
   void initState() {
@@ -114,11 +115,19 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ..repeat(reverse: true);
     _photoFuture = PhotoService.getCachedPhotoUrl();
     _calendarDataFuture = _fetchAcademicCalendar();
-    // Both dashboard and drawer share the same calendar future;
-    // profile is cached internally so only one HTTP call is made.
     _drawerDataFuture = _fetchDashboardDataForDrawer();
     _dashboardDataFuture = _fetchDashboardData();
     _cacheStudentPhoto();
+    _loadAvatarConfig();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Wait for framework to settle before accessing provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncWithProvider();
+    });
   }
 
   @override
@@ -128,7 +137,20 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-// Fix _refreshPhoto - convert to async to match CustomDrawer signature
+  Future<void> _loadAvatarConfig() async {
+    final avatar = await AvatarService.load(widget.rollNo);
+    if (mounted && avatar != null) {
+      setState(() => _avatarConfig = avatar);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          Provider.of<DisplayModeProvider>(context, listen: false)
+              .updateAvatar(avatar);
+        } catch (_) {}
+      });
+    }
+  }
+
   Future<void> _refreshPhoto() async {
     await PhotoService.clearCachedPhoto();
     await PhotoService.cacheStudentPhoto(widget.rollNo);
@@ -137,20 +159,152 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       setState(() {
         _photoFuture = photoFuture;
       });
+      final url = await photoFuture;
+      if (mounted && url != null) {
+        try {
+          Provider.of<DisplayModeProvider>(context, listen: false)
+              .updatePhotoUrl(url);
+        } catch (_) {}
+      }
     }
   }
 
-// Also update _cacheStudentPhoto to NOT call setState
   Future<void> _cacheStudentPhoto() async {
     await PhotoService.cacheStudentPhoto(widget.rollNo);
     if (mounted) {
-      // ✅ Resolve the future OUTSIDE setState first
       final photoFuture = PhotoService.getCachedPhotoUrl();
       setState(() {
-        _photoFuture =
-            photoFuture; // ← Now this is just a variable assignment, no async
+        _photoFuture = photoFuture;
       });
+      // Push resolved URL to provider so swap works immediately
+      final url = await photoFuture;
+      if (mounted && url != null) {
+        try {
+          Provider.of<DisplayModeProvider>(context, listen: false)
+              .updatePhotoUrl(url);
+        } catch (_) {}
+      }
     }
+  }
+
+  void _toggleDisplayMode() {
+    final dp = Provider.of<DisplayModeProvider>(context, listen: false);
+    // Make sure photo URL is registered before toggling
+    _photoFuture.then((url) {
+      if (url != null) dp.updatePhotoUrl(url);
+      dp.toggle();
+      if (mounted)
+        setState(() {
+          if (dp.avatarConfig != null) _avatarConfig = dp.avatarConfig;
+        });
+      final label = dp.showAvatar ? '✓ Avatar' : '✓ Real Photo';
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(label, style: const TextStyle(fontSize: 13)),
+          duration: const Duration(milliseconds: 700),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF00A86B),
+        ));
+    });
+  }
+
+// // NEW: Open avatar creator
+//   Future<void> _openAvatarCreator() async {
+//     final result = await Navigator.push<AvatarConfig>(
+//       context,
+//       PageRouteBuilder(
+//         pageBuilder: (_, __, ___) => EnhancedAvatarCreatorScreen(
+//           rollNo: widget.rollNo,
+//           initial: _avatarConfig,
+//         ),
+//         transitionsBuilder: (_, anim, __, child) => SlideTransition(
+//           position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+//               .animate(
+//                   CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+//           child: child,
+//         ),
+//         transitionDuration: const Duration(milliseconds: 380),
+//       ),
+//     );
+//     if (result != null && mounted) {
+//       setState(() => _avatarConfig = result);
+
+//       // Try to update provider if available
+//       try {
+//         final displayProvider =
+//             Provider.of<DisplayModeProvider>(context, listen: false);
+//         displayProvider.updateAvatar(result);
+//       } catch (e) {
+//         // Provider not available, just update local state
+//       }
+
+//       // provider.updateAvatar already sets showAvatar=true
+//     }
+//   }
+
+
+
+
+  Widget _buildProfileImageWithAvatar() {
+    final _C = Provider.of<ThemeProvider>(context);
+
+    // Always show real photo - no avatar toggle
+    return FutureBuilder<String?>(
+      future: _photoFuture,
+      builder: (context, snap) {
+        // Push URL to provider as soon as it resolves
+        if (snap.connectionState == ConnectionState.done && snap.data != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              try {
+                Provider.of<DisplayModeProvider>(context, listen: false)
+                    .updatePhotoUrl(snap.data);
+              } catch (_) {}
+            }
+          });
+        }
+
+        if (snap.connectionState == ConnectionState.waiting) {
+          return Container(
+            color: _C.elevated,
+            child: Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child:
+                    CircularProgressIndicator(strokeWidth: 2, color: _C.cyan),
+              ),
+            ),
+          );
+        }
+        if (snap.data == null) {
+          return Container(
+            color: _C.elevated,
+            child: Icon(Icons.person_rounded, color: _C.cyan, size: 20),
+          );
+        }
+        return CachedNetworkImage(
+          imageUrl: snap.data!,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(
+            color: _C.elevated,
+            child: Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child:
+                    CircularProgressIndicator(strokeWidth: 2, color: _C.cyan),
+              ),
+            ),
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: _C.elevated,
+            child: Icon(Icons.person_rounded, color: _C.cyan, size: 20),
+          ),
+          httpHeaders: PhotoService.headers,
+        );
+      },
+    );
   }
 
   Future<Map<String, dynamic>> _fetchAcademicCalendar() async {
@@ -368,9 +522,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
   Future<Map<String, dynamic>> _fetchDashboardData() async {
     try {
-      // Run all independent fetches in parallel
       final results = await Future.wait([
-        _calendarDataFuture, // already cached future
+        _calendarDataFuture,
         _fetchStudentProfile(),
         _fetchExamResults(),
         _fetchAttendanceData(),
@@ -383,7 +536,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       final attendanceData = results[3] as Map<String, dynamic>;
       final todayAttendance = results[4] as List<Map<String, dynamic>>;
       final currentSemesterNumber = calendarData.isNotEmpty
-          ? _calculateFallbackSemester(calendarData) // trust calendar first
+          ? _calculateFallbackSemester(calendarData)
           : _calculateCurrentSemesterNumber(studentProfile, calendarData);
       final semesterInfo = _calculateCurrentSemesterInfo(calendarData);
       final weeksCompleted = _calculateWeeksCompleted(semesterInfo);
@@ -416,7 +569,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
   Future<Map<String, dynamic>> _fetchDashboardDataForDrawer() async {
     try {
-      // Run in parallel
       final results = await Future.wait([
         _calendarDataFuture,
         _fetchStudentProfile(),
@@ -435,12 +587,10 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       final currentCGPA = _calculateCurrentCGPA(examResults);
       double attendancePercentage = _calculateSimpleAttendance(attendanceData);
       if (attendancePercentage == 0.0) {
-        // Try the fuller calculation as fallback
         attendancePercentage = await _calculateCurrentSemesterAttendance(
             attendanceData, calendarData, currentSemesterNumber);
       }
 
-// Also add to returned map for debugging:
       debugPrint(
           'Drawer: sem=$currentSemesterNumber att=$attendancePercentage');
       final currentSemesterCourses =
@@ -548,7 +698,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
   int _calculateFallbackSemester(Map<String, dynamic> calendarData) {
     final info = _calculateCurrentSemesterInfo(calendarData);
-    // 'semester' key is 1=odd, 2=even — correct
     return info['semester'] as int;
   }
 
@@ -666,14 +815,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     int currentSemester,
   ) async {
     try {
-      // Your API: { attendance: [ { sem_even: [...], sem_odd: [...] } ] }
       List<dynamic> yearList = [];
       if (attendanceData['attendance'] is List) {
         yearList = attendanceData['attendance'] as List;
       } else if (attendanceData['data'] is List) {
         final d = (attendanceData['data'] as List);
         if (d.isNotEmpty && d[0]['attendance'] is Map) {
-          // Shape B — wrap in list so loop below works
           yearList = [d[0]['attendance']];
         }
       }
@@ -687,7 +834,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           break;
         }
       }
-      // Fallback: try other semester
       if (records.isEmpty) {
         final fallback = currentSemester == 1 ? 'sem_even' : 'sem_odd';
         for (final item in yearList) {
@@ -728,20 +874,14 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
   double _calculateSimpleAttendance(Map<String, dynamic> attendanceData) {
     try {
-      // Support both response shapes:
-      // Shape A: { attendance: [ {sem_even: [...]} ] }  ← direct API
-      // Shape B: { success: true, data: [ { attendance: {...} } ] }
       Map<String, dynamic>? attendance;
 
       if (attendanceData['attendance'] is List) {
-        // Shape A — top-level attendance list
         final list = attendanceData['attendance'] as List;
         if (list.isEmpty) return 0.0;
-        // Each item may have sem_even/sem_odd directly
         return _computeAttendanceFromList(list);
       } else if (attendanceData['success'] == true &&
           attendanceData['data'] is List) {
-        // Shape B
         final dataList = attendanceData['data'] as List;
         if (dataList.isEmpty) return 0.0;
         final att = dataList[0]['attendance'];
@@ -755,7 +895,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     }
   }
 
-// For shape A: list of year objects with sem_even/sem_odd
   double _computeAttendanceFromList(List list) {
     double totalAbsent = 0.0;
     int totalDays = 0;
@@ -784,7 +923,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     return totalDays > 0 ? ((totalDays - totalAbsent) / totalDays) * 100 : 0.0;
   }
 
-// For shape B: map with sem_even/sem_odd lists
   double _computeAttendanceFromMap(Map<String, dynamic> attendance) {
     double totalAbsent = 0.0;
     int totalDays = 0;
@@ -838,9 +976,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     return semester < suffixes.length ? suffixes[semester] : '${semester}th';
   }
 
-  // ─── BUILD ─────────────────────────────────────────────────────────────────
-
-  // In _MainPageState - add state variables
   Map<String, dynamic>? _cachedDashboardData;
 
   @override
@@ -853,7 +988,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dashboardDataFuture,
         builder: (context, snapshot) {
-          // Use cached data if available (fixes back navigation issue)
           if (snapshot.hasData) {
             _cachedDashboardData = snapshot.data;
           }
@@ -890,6 +1024,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     );
   }
 
+// BEFORE - has the profile photo with GestureDetector
+// REPLACE with this simplified version:
+
+// Keep all your imports as they are
+// The avatar functionality should stay - we just make it look BETTER
+
   PreferredSizeWidget _buildFuturisticAppBar() {
     final _C = Provider.of<ThemeProvider>(context);
     return PreferredSize(
@@ -910,14 +1050,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 BoxShadow(
                   color: _C.cyan.withOpacity(0.06 + _appBarGlow.value * 0.04),
                   blurRadius: 20,
-                  spreadRadius: 0,
                 ),
               ],
             ),
             child: SafeArea(
               child: Row(
                 children: [
-                  // Menu button
                   Builder(
                     builder: (ctx) => IconButton(
                       icon: Container(
@@ -934,8 +1072,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(width: 4),
-
-                  // Logo + Title
                   Container(
                     width: 30,
                     height: 30,
@@ -964,7 +1100,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(width: 10),
-
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -990,8 +1125,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     ],
                   ),
                   const Spacer(),
-
-                  // Status indicator
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -1033,17 +1166,39 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Profile photo → tap shows animated bubble overlay
+                  // BEAUTIFUL AVATAR WIDGET - Keep this!
                   GestureDetector(
-                    onTap: () => _handleProfileTap(context, _C),
-                    child: StudentPhotoWidget(
-                      rollNo: widget.rollNo,
-                      size: 34,
-                      borderColor: _C.cyan,
-                      showRing: false,
-                      showGlow: false,
-                      show3DEffect: false,
+                    // onTap: () => _openAvatarCreator(),
+                    onLongPress: _toggleDisplayMode,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6366f1), Color(0xFF8b5cf6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF6366f1).withOpacity(0.4),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Container(
+                        margin: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _C.surface,
+                        ),
+                        child: ClipOval(
+                          child: _buildProfileImageWithAvatar(),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1063,8 +1218,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
         now.difference(_firstTapTime!) > const Duration(seconds: 3)) {
       _firstTapTime = now;
       _profileTapCount = 1;
-      // Only show bubble on the very first tap of a new sequence
-      // _showProfileBubble(context, _C);
       return;
     }
 
@@ -1076,7 +1229,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       HapticFeedback.heavyImpact();
       _launchCampusPet(context);
     } else {
-      // Taps 2-4: light haptic only, no bubble (keeps sequence intact)
       HapticFeedback.selectionClick();
     }
   }
@@ -1107,23 +1259,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       ),
     );
   }
-
-  // void _showProfileBubble(BuildContext context, ThemeProvider _C) {
-  //   final overlay = Overlay.of(context);
-  //   final renderBox = context.findRenderObject() as RenderBox;
-  //   final size = renderBox.size;
-
-  //   late OverlayEntry entry;
-  //   entry = OverlayEntry(
-  //       builder: (_) => _ProfileBubbleOverlay(
-  //             rollNo: widget.rollNo,
-  //             studentName: widget.studentName,
-  //             photoFuture: _photoFuture,
-  //             screenWidth: size.width,
-  //             onClose: () => entry.remove(),
-  //           ));
-  //   overlay.insert(entry);
-  // }
 
   Widget _buildLoadingState() {
     final _C = Provider.of<ThemeProvider>(context);
@@ -1201,15 +1336,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     );
   }
 
-  // ─── DRAWER ──────────────────────────────────────────────────────────────
-
-// In _MainPageState._buildDrawer()
   Widget _buildDrawer() {
     return CustomDrawer(
       rollNo: widget.rollNo,
       studentName: widget.studentName,
       currentRoute: '/dashboard',
-      fetchDrawerData: () => _drawerDataFuture, // return cached future!
+      fetchDrawerData: () => _drawerDataFuture,
       getPhotoFuture: () => _photoFuture,
       onRefreshPhoto: _refreshPhoto,
     );
@@ -1256,31 +1388,24 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Avatar
-                  FutureBuilder<String?>(
-                    future: _photoFuture,
-                    builder: (context, snap) => Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _C.cyan.withOpacity(0.5),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _C.cyan.withOpacity(0.2),
-                            blurRadius: 12,
-                          ),
-                        ],
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _C.cyan.withOpacity(0.5),
+                        width: 2,
                       ),
-                      child: ClipOval(
-                        child: _buildProfileImage(
-                          snap.data,
-                          snap.connectionState,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _C.cyan.withOpacity(0.2),
+                          blurRadius: 12,
                         ),
-                      ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: _buildProfileImageWithAvatar(),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -1348,7 +1473,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 ],
               ),
               const SizedBox(height: 16),
-              // Stats row
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -1409,8 +1533,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                                 snapshot.data!['usingFallback'] == true
                                     ? (snapshot.data!['currentSemesterName']
                                             as String)
-                                        .replaceAll(
-                                            ' Semester', '') // "Even" or "Odd"
+                                        .replaceAll(' Semester', '')
                                     : "${_getOrdinalSemester(semester)}",
                                 "SEM",
                                 _C.violet,
@@ -1466,121 +1589,123 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     return Container(width: 1, height: 28, color: _C.border);
   }
 
-  Widget _buildNavSection(ThemeProvider _C) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        children: [
-          _navGroup("MAIN", [
-            _navItem(
-              Icons.dashboard_rounded,
-              "Dashboard",
-              _C.cyan,
-              isSelected: true,
-              onTap: () => Navigator.pop(context),
-            ),
-          ]),
-          _navGroup("ACADEMICS", [
-            _navItem(
-              Icons.person_rounded,
-              "My Profile",
-              _C.violet,
-              onTap: () => _navigateTo(ProfileScreen(
-                rollNo: widget.rollNo,
-                studentName: widget.studentName,
-              )),
-            ),
-            _navItem(
-              Icons.schedule_rounded,
-              "Timetable",
-              _C.cyan,
-              onTap: () => _navigateTo(TimetableScreen(rollNo: widget.rollNo)),
-            ),
-            _navItem(
-              Icons.subject_rounded,
-              "Subjects",
-              _C.green,
-              onTap: () => _navigateTo(SubjectsPage()),
-            ),
-            _navItem(
-              Icons.school_rounded,
-              "Student Mentor",
-              _C.amber,
-              onTap: () => _navigateTo(
-                MentorScreen(
-                  rollNo: widget.rollNo,
-                  studentName: widget.studentName,
-                ),
-              ),
-            ),
-          ]),
-          _navGroup("ATTENDANCE", [
-            _navItem(
-              Icons.calendar_today_rounded,
-              "Daily Attendance",
-              _C.cyan,
-              onTap: () => _navigateTo(
-                AttendanceScreen(
-                  rollNo: widget.rollNo,
-                  studentName: widget.studentName,
-                ),
-              ),
-            ),
-            _navItem(
-              Icons.leave_bags_at_home_rounded,
-              "Leave Management",
-              _C.pink,
-              onTap: () => _navigateTo(
-                LeaveManagementScreen(
-                  rollNo: widget.rollNo,
-                  studentName: widget.studentName,
-                ),
-              ),
-            ),
-          ]),
-          _navGroup("EXAMINATIONS", [
-            _navItem(
-              Icons.grade_rounded,
-              "Exam Results",
-              _C.green,
-              onTap: () => _navigateTo(
-                ExamResultsPage(
-                  studentName: widget.studentName,
-                  rollNo: widget.rollNo,
-                ),
-              ),
-            ),
-            _navItem(
-              Icons.chair_rounded,
-              "Seating Arrangement",
-              _C.violet,
-              onTap: () => _navigateTo(
-                SeatingArrangementPage(
-                  studentName: widget.studentName,
-                  rollNo: widget.rollNo,
-                ),
-              ),
-            ),
-          ]),
-          _navGroup("CAMPUS", [
-            // In _buildNavSection and _buildDrawer navigation:
-            _navItem(
-              Icons.event_rounded,
-              "Academic Calendar",
-              _C.amber,
-              onTap: () => _navigateTo(
-                AcademicCalendarScreen(
-                  rollNo: widget.rollNo, // ADD
-                  studentName: widget.studentName, // ADD
-                ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
+  // Widget _buildNavSection(ThemeProvider _C) {
+  //   return SingleChildScrollView(
+  //     padding: const EdgeInsets.symmetric(vertical: 12),
+  //     child: Column(
+  //       children: [
+  //         _navGroup("MAIN", [
+  //           _navItem(
+  //             Icons.dashboard_rounded,
+  //             "Dashboard",
+  //             _C.cyan,
+  //             isSelected: true,
+  //             onTap: () => Navigator.pop(context),
+  //           ),
+  //         ]),
+  //         _navGroup("ACADEMICS", [
+  //           _navItem(
+  //             Icons.person_rounded,
+  //             "My Profile",
+  //             _C.violet,
+  //             onTap: () => _navigateTo(ProfileScreen(
+  //               rollNo: widget.rollNo,
+  //               studentName: widget.studentName,
+  //             )),
+  //           ),
+  //           _navItem(
+  //             Icons.schedule_rounded,
+  //             "Timetable",
+  //             _C.cyan,
+  //             onTap: () => _navigateTo(TimetableScreen(rollNo: widget.rollNo)),
+  //           ),
+  //           _navItem(
+  //             Icons.subject_rounded,
+  //             "Subjects",
+  //             _C.green,
+  //             onTap: () => _navigateTo(SubjectsPage()),
+  //           ),
+  //           _navItem(
+  //             Icons.school_rounded,
+  //             "Student Mentor",
+  //             _C.amber,
+  //             onTap: () => _navigateTo(
+  //               MentorScreen(
+  //                 rollNo: widget.rollNo,
+  //                 studentName: widget.studentName,
+  //               ),
+  //             ),
+  //           ),
+  //         ]),
+  //         _navGroup("ATTENDANCE", [
+  //           _navItem(
+  //             Icons.calendar_today_rounded,
+  //             "Daily Attendance",
+  //             _C.cyan,
+  //             onTap: () => _navigateTo(
+  //               AttendanceScreen(
+  //                 rollNo: widget.rollNo,
+  //                 studentName: widget.studentName,
+  //               ),
+  //             ),
+  //           ),
+  //           _navItem(
+  //             Icons.leave_bags_at_home_rounded,
+  //             "Leave Management",
+  //             _C.pink,
+  //             onTap: () => _navigateTo(
+  //               LeaveManagementScreen(
+  //                 rollNo: widget.rollNo,
+  //                 studentName: widget.studentName,
+  //               ),
+  //             ),
+  //           ),
+  //         ]),
+  //         _navGroup("EXAMINATIONS", [
+  //           _navItem(
+  //             Icons.grade_rounded,
+  //             "Exam Results",
+  //             _C.green,
+  //             onTap: () => _navigateTo(
+  //               ExamResultsPage(
+  //                 studentName: widget.studentName,
+  //                 rollNo: widget.rollNo,
+  //               ),
+  //             ),
+  //           ),
+  //           _navItem(
+  //             Icons.chair_rounded,
+  //             "Seating Arrangement",
+  //             _C.violet,
+  //             onTap: () => _navigateTo(
+  //               SeatingArrangementPage(
+  //                 studentName: widget.studentName,
+  //                 rollNo: widget.rollNo,
+  //               ),
+  //             ),
+  //           ),
+  //         ]),
+  //         _navGroup("CAMPUS", [
+  //           _navItem(
+  //             Icons.event_rounded,
+  //             "Academic Calendar",
+  //             _C.amber,
+  //             onTap: () => _navigateTo(
+  //               AcademicCalendarScreen(
+  //                 rollNo: widget.rollNo,
+  //                 studentName: widget.studentName,
+  //               ),
+  //             ),
+  //           ),
+  //         ]),
+  //         const SizedBox(height: 8),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+
+
 
   Widget _navGroup(String title, List<Widget> items) {
     final _C = Provider.of<ThemeProvider>(context);
@@ -1667,7 +1792,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ),
           child: Column(
             children: [
-              // Theme Toggle Button
               Container(
                 decoration: BoxDecoration(
                   color: _C.cyan.withOpacity(0.08),
@@ -1713,7 +1837,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 8),
-              // Logout Button
               Container(
                 decoration: BoxDecoration(
                   color: _C.pink.withOpacity(0.08),
@@ -1933,7 +2056,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     color: _C.pink,
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Text(
                   "Signing out...",
                   style: TextStyle(
@@ -1967,47 +2090,60 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildProfileImage(String? photoUrl, ConnectionState connectionState) {
-    final _C = Provider.of<ThemeProvider>(context);
-    if (connectionState == ConnectionState.waiting) {
-      return Container(
-        color: _C.elevated,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _C.cyan),
-          ),
-        ),
-      );
-    }
-    if (photoUrl == null) {
-      return Container(
-        color: _C.elevated,
-        child: Icon(Icons.person_rounded, color: _C.cyan, size: 28),
-      );
-    }
-    return CachedNetworkImage(
-      imageUrl: photoUrl,
-      fit: BoxFit.cover,
-      placeholder: (_, __) => Container(
-        color: _C.elevated,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _C.cyan),
-          ),
-        ),
-      ),
-      errorWidget: (_, __, ___) => Container(
-        color: _C.elevated,
-        child: Icon(Icons.person_rounded, color: _C.cyan, size: 28),
-      ),
-      httpHeaders: PhotoService.headers,
-    );
+  void _syncWithProvider() {
+    Future.microtask(() {
+      if (!mounted) return;
+      try {
+        final dp = Provider.of<DisplayModeProvider>(context, listen: false);
+        if (_avatarConfig != null) dp.updateAvatar(_avatarConfig);
+        _photoFuture.then((photo) {
+          if (mounted && photo != null) dp.updatePhotoUrl(photo);
+        }).catchError((_) {});
+      } catch (_) {}
+    });
   }
 }
+
+// Widget _buildProfileImage(String? photoUrl, ConnectionState connectionState) {
+//   final _C = Provider.of<ThemeProvider>(context);
+//   if (connectionState == ConnectionState.waiting) {
+//     return Container(
+//       color: _C.elevated,
+//       child: Center(
+//         child: SizedBox(
+//           width: 20,
+//           height: 20,
+//           child: CircularProgressIndicator(strokeWidth: 2, color: _C.cyan),
+//         ),
+//       ),
+//     );
+//   }
+//   if (photoUrl == null) {
+//     return Container(
+//       color: _C.elevated,
+//       child: Icon(Icons.person_rounded, color: _C.cyan, size: 28),
+//     );
+//   }
+//   return CachedNetworkImage(
+//     imageUrl: photoUrl,
+//     fit: BoxFit.cover,
+//     placeholder: (_, __) => Container(
+//       color: _C.elevated,
+//       child: Center(
+//         child: SizedBox(
+//           width: 20,
+//           height: 20,
+//           child: CircularProgressIndicator(strokeWidth: 2, color: _C.cyan),
+//         ),
+//       ),
+//     ),
+//     errorWidget: (_, __, ___) => Container(
+//       color: _C.elevated,
+//       child: Icon(Icons.person_rounded, color: _C.cyan, size: 28),
+//     ),
+//     httpHeaders: PhotoService.headers,
+//   );
+// }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FUTURISTIC DASHBOARD

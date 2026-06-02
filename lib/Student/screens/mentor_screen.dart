@@ -40,7 +40,7 @@ class _MentorScreenState extends State<MentorScreen>
   List<dynamic> _staffInfo = [];
   int _totalSessions = 0;
   String? _studentName;
-  int _tabIndex = 0; // 0=overview, 1=sessions, 2=chat
+  int _tabIndex = 0; 
 
   // ── Chat ──
   final List<ChatMessage> _messages = [];

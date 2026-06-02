@@ -94,11 +94,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
       if (widget.getPhotoFuture != null) {
         final url = await widget.getPhotoFuture!()
             .timeout(const Duration(seconds: 6), onTimeout: () => null);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _photoUrl = url;
             _photoLoading = false;
           });
+        }
         return;
       }
 
@@ -121,11 +122,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
         }
       }
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _photoUrl = url;
           _photoLoading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _photoLoading = false);
     }
@@ -284,56 +286,45 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
   }
 
-  // ─── PHOTO WIDGET ─────────────────────────────────────────────────────────
+  // ─── PHOTO WIDGET ────────────────────────────────────────────────────────
   Widget _buildPhotoWidget(ThemeProvider c) {
     return Container(
       width: 64,
       height: 64,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: c.cyan.withOpacity(0.6), width: 2),
-        boxShadow: [
-          BoxShadow(color: c.cyan.withOpacity(0.25), blurRadius: 14),
-        ],
+        border: Border.all(color: c.cyan, width: 2.5),
+        boxShadow: [BoxShadow(color: c.cyan.withOpacity(0.3), blurRadius: 12)],
       ),
-      child: ClipOval(
-        child: _photoLoading
-            ? Container(
-                color: c.elevated,
-                child: Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: c.cyan,
-                    ),
-                  ),
-                ),
-              )
-            : _photoUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: _photoUrl!,
-                    fit: BoxFit.cover,
-                    width: 64,
-                    height: 64,
-                    httpHeaders: PhotoService.headers,
-                    placeholder: (_, __) => Container(
-                      color: c.elevated,
-                      child: Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: c.cyan,
-                          ),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => _buildAvatarFallback(c),
-                  )
-                : _buildAvatarFallback(c),
+      child: ClipOval(child: _buildDisplayImage(c)),
+    );
+  }
+
+  Widget _buildDisplayImage(ThemeProvider c) {
+    if (_photoLoading) return _buildLoadingPlaceholder(c);
+    if (_photoUrl != null) {
+      return CachedNetworkImage(
+        imageUrl: _photoUrl!,
+        fit: BoxFit.cover,
+        width: 64,
+        height: 64,
+        httpHeaders: PhotoService.headers,
+        placeholder: (_, __) => _buildLoadingPlaceholder(c),
+        errorWidget: (_, __, ___) => _buildAvatarFallback(c),
+      );
+    }
+    return _buildAvatarFallback(c);
+  }
+
+  Widget _buildLoadingPlaceholder(ThemeProvider c) {
+    return Container(
+      color: c.elevated,
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
+        ),
       ),
     );
   }
@@ -579,13 +570,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       _buildPhotoWidget(c),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               displayName,
@@ -598,46 +590,70 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: c.cyan.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: c.cyan.withOpacity(0.3)),
-                              ),
-                              child: Text(
-                                displayRollNo.isNotEmpty
-                                    ? displayRollNo
-                                    : 'Loading...',
-                                style: TextStyle(
-                                  color: c.cyan,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             Row(
                               children: [
                                 Container(
-                                  width: 7,
-                                  height: 7,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: c.cyan.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                        color: c.cyan.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    displayRollNo.isNotEmpty
+                                        ? displayRollNo
+                                        : 'Loading...',
+                                    style: TextStyle(
+                                      color: c.cyan,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  width: 6,
+                                  height: 6,
                                   decoration: BoxDecoration(
                                       color: c.green, shape: BoxShape.circle),
                                 ),
-                                const SizedBox(width: 5),
+                                const SizedBox(width: 4),
                                 Text(
-                                  "Active Student",
+                                  "Active",
                                   style: TextStyle(
                                       color: c.textMid,
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w500),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: c.cyan.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border:
+                                    Border.all(color: c.cyan.withOpacity(0.35)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.photo_camera_rounded,
+                                      size: 10, color: c.cyan),
+                                  const SizedBox(width: 4),
+                                  Text('Photo',
+                                      style: TextStyle(
+                                          color: c.cyan,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -716,11 +732,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   c,
                                 ),
                                 _vDivider(c),
-                                _drawerStat(
-                                    courses == 0 ? "…" : "$courses",
-                                    "COURSES",
-                                    c.cyan,
-                                    c),
+                                _drawerStat(courses == 0 ? "…" : "$courses",
+                                    "COURSES", c.cyan, c),
                                 _vDivider(c),
                                 _drawerStat(
                                     "${attendancePct.toStringAsFixed(0)}%",
@@ -933,8 +946,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
                   tileColor: c.cyan.withOpacity(0.08),
@@ -981,8 +993,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
                   tileColor: c.pink.withOpacity(0.08),
@@ -997,8 +1008,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       color: c.pink.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child:
-                        Icon(Icons.logout_rounded, color: c.pink, size: 17),
+                    child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
                   ),
                   title: Text(
                     "Logout",
@@ -1109,9 +1119,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
     final weeksCompleted = now.isBefore(startDate)
         ? 0
-        : ((now.difference(startDate).inDays) / 7)
-            .floor()
-            .clamp(0, totalWeeks);
+        : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
 
     return {
       'semester': isOdd ? 1 : 2,
@@ -1145,8 +1153,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1)
-                  totalAbsent += 0.5;
+                else if (absent >= 1) totalAbsent += 0.5;
               });
             }
           }
@@ -1179,8 +1186,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1)
-                  totalAbsent += 0.5;
+                else if (absent >= 1) totalAbsent += 0.5;
               });
             }
           }

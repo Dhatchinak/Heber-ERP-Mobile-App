@@ -23,17 +23,22 @@ dependencies:
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
   
-  # Additional
-  image_picker: ^1.0.5
+  # Image & File Handling
+  image_picker: ^1.0.7   # ← keep this (for picking images)
+  file_picker: ^8.0.0    # ← keep this (for file selection)
+  path_provider: ^2.1.2  # ← keep this (for file paths)
+  path: ^1.9.0           # ← keep this (for path operations)
+  
+  # PDF & Printing
   printing: ^5.14.3
   pdf: ^3.10.8
+  
+  # Utilities
   http_parser: ^4.0.2
-  path: ^1.9.0
   share_plus: ^12.0.2
-  path_provider: ^2.1.2
   open_file: ^3.3.2
-  file_picker: ^8.0.0   # add this line
-
+  
+  # REMOVED: image_cropper: ^5.0.1  (not needed - you have custom crop implementation)
 
 dev_dependencies:
   flutter_test:
