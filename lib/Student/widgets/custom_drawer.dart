@@ -43,6 +43,13 @@ class CustomDrawer extends StatefulWidget {
 }
 
 class _CustomDrawerState extends State<CustomDrawer> {
+  // ── Static cache: shared across all drawer instances in the app session ──
+  static Map<String, dynamic>? _cachedDrawerData;
+  static String? _cachedPhotoUrl;
+  static bool _photoCacheFetched = false;
+  static String? _cachedRollNo;
+  static String? _cachedStudentName;
+
   late Future<Map<String, dynamic>> _drawerDataFuture;
   String _rollNo = '';
   String _studentName = '';
@@ -55,11 +62,35 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _rollNo = widget.rollNo.trim();
     _studentName = widget.studentName;
 
+    // Use cached name/rollNo if available (for screens that pass empty/default)
+    if (_cachedRollNo != null && _cachedRollNo!.isNotEmpty) {
+      if (_rollNo.isEmpty) _rollNo = _cachedRollNo!;
+    }
+    if (_cachedStudentName != null && _cachedStudentName!.isNotEmpty) {
+      if (_studentName.isEmpty || _studentName == 'Student') {
+        _studentName = _cachedStudentName!;
+      }
+    }
+
     if (widget.fetchDrawerData != null) {
-      _drawerDataFuture = widget.fetchDrawerData!();
+      // Dashboard provides its own future — use it and update cache
+      _drawerDataFuture = widget.fetchDrawerData!().then((data) {
+        _cachedDrawerData = data;
+        return data;
+      });
+    } else if (_cachedDrawerData != null) {
+      // Already fetched before — reuse instantly, no loading
+      _drawerDataFuture = Future.value(_cachedDrawerData!);
     } else {
       _drawerDataFuture = Future.value(_defaultDrawerData());
     }
+
+    // Photo: if already cached, apply immediately without loading spinner
+    if (_photoCacheFetched) {
+      _photoUrl = _cachedPhotoUrl;
+      _photoLoading = false;
+    }
+
     _initData();
   }
 
@@ -71,12 +102,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
     if (mounted) {
       setState(() {
         if (_rollNo.isEmpty) _rollNo = savedRollNo;
-        if (_studentName.isEmpty) _studentName = savedName;
+        if (_studentName.isEmpty || _studentName == 'Student') {
+          _studentName = savedName.isNotEmpty ? savedName : _studentName;
+        }
       });
     }
 
-    if (widget.fetchDrawerData == null && mounted) {
-      final future = _fetchFallbackDrawerData();
+    // Update static name/rollNo cache
+    if (_rollNo.isNotEmpty) _cachedRollNo = _rollNo;
+    if (_studentName.isNotEmpty && _studentName != 'Student') {
+      _cachedStudentName = _studentName;
+    }
+
+    // Only fetch drawer data if not cached and no external provider
+    if (widget.fetchDrawerData == null &&
+        _cachedDrawerData == null &&
+        mounted) {
+      final future = _fetchFallbackDrawerData().then((data) {
+        _cachedDrawerData = data;
+        return data;
+      });
       if (mounted) {
         setState(() {
           _drawerDataFuture = future;
@@ -84,7 +129,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
       }
     }
 
-    await _loadPhoto();
+    // Only load photo if not already cached
+    if (!_photoCacheFetched) {
+      await _loadPhoto();
+    }
   }
 
   Future<void> _loadPhoto() async {
@@ -94,6 +142,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       if (widget.getPhotoFuture != null) {
         final url = await widget.getPhotoFuture!()
             .timeout(const Duration(seconds: 6), onTimeout: () => null);
+        _cachedPhotoUrl = url;
+        _photoCacheFetched = true;
         if (mounted) {
           setState(() {
             _photoUrl = url;
@@ -108,6 +158,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
 
       if (effectiveRollNo.isEmpty) {
+        _photoCacheFetched = true;
         if (mounted) setState(() => _photoLoading = false);
         return;
       }
@@ -122,6 +173,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
         }
       }
 
+      _cachedPhotoUrl = url;
+      _photoCacheFetched = true;
       if (mounted) {
         setState(() {
           _photoUrl = url;
@@ -129,6 +182,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         });
       }
     } catch (_) {
+      _photoCacheFetched = true;
       if (mounted) setState(() => _photoLoading = false);
     }
   }
@@ -472,6 +526,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     if (shouldLogout == true) {
       if (!mounted) return;
+      // Clear static cache so next login loads fresh data
+      _cachedDrawerData = null;
+      _cachedPhotoUrl = null;
+      _photoCacheFetched = false;
+      _cachedRollNo = null;
+      _cachedStudentName = null;
       showDialog(
         context: context,
         barrierDismissible: false,

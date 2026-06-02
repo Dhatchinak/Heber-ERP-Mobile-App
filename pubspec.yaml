@@ -24,10 +24,10 @@ dependencies:
   shimmer: ^3.0.0
   
   # Image & File Handling
-  image_picker: ^1.0.7   # ← keep this (for picking images)
-  file_picker: ^8.0.0    # ← keep this (for file selection)
-  path_provider: ^2.1.2  # ← keep this (for file paths)
-  path: ^1.9.0           # ← keep this (for path operations)
+  image_picker: ^1.0.7
+  file_picker: ^8.0.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
   
   # PDF & Printing
   printing: ^5.14.3
@@ -37,15 +37,12 @@ dependencies:
   http_parser: ^4.0.2
   share_plus: ^12.0.2
   open_file: ^3.3.2
-  
-  # REMOVED: image_cropper: ^5.0.1  (not needed - you have custom crop implementation)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
-
 
 flutter:
   uses-material-design: true
@@ -54,6 +51,19 @@ flutter:
     - assets/
     - assets/bhclogo.png
     - assets/logo.png
+    - assets/fonts/   
+    
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Roboto-Light.ttf
+          weight: 300
 
 flutter_launcher_icons:
   android: true

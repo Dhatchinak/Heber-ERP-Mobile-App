@@ -455,6 +455,9 @@ class LeaveService {
 // PDF GENERATOR
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Replace your existing LeavePdfGenerator class with this completely redesigned version
+
+
 class LeavePdfGenerator {
   static Future<Uint8List> generate({
     required Student student,
@@ -465,208 +468,380 @@ class LeavePdfGenerator {
     Uint8List? logoBytes,
   }) async {
     final pdf = pw.Document();
-    final config = _cfg(leaveType);
-    final fmt = DateFormat('dd MMMM yyyy');
-    final sFmt = DateFormat('dd/MM/yyyy');
+    
+    // Get leave type config
+    final config = _getLeaveTypeConfig(leaveType);
+    
+    // Format dates
+    final dateFormat = DateFormat('dd MMMM yyyy');
+    final today = dateFormat.format(DateTime.now());
+    final fromDateStr = dateFormat.format(fromDate);
+    final toDateStr = dateFormat.format(toDate);
     final days = toDate.difference(fromDate).inDays + 1;
-
-    pw.Font? reg, bold;
-    try {
-      reg =
-          pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
-      bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
-    } catch (_) {}
-
-    pw.TextStyle base(double sz, {PdfColor? color}) => pw.TextStyle(
-        font: reg, fontSize: sz, color: color ?? PdfColors.grey900);
-    pw.TextStyle bld(double sz, {PdfColor? color}) => pw.TextStyle(
-        font: bold,
-        fontSize: sz,
-        fontWeight: pw.FontWeight.bold,
-        color: color ?? PdfColors.grey900);
-
-    final accent = PdfColor.fromHex('#1a237e');
-    final light = PdfColor.fromHex('#e8eaf6');
-
-    pw.Widget? logo;
-    if (logoBytes != null)
-      logo = pw.Image(pw.MemoryImage(logoBytes),
-          width: 64, height: 64, fit: pw.BoxFit.contain);
-
-    String recipient;
+    
+    // Colors
+    final navyBlue = PdfColor.fromInt(0xFF1A2A4A);
+    final gold = PdfColor.fromInt(0xFFC9A03D);
+    final lightGray = PdfColor.fromInt(0xFFF5F5F5);
+    final mediumGray = PdfColor.fromInt(0xFF666666);
+    final borderGray = PdfColor.fromInt(0xFFE0E0E0);
+    
+    // Accent color based on leave type
+    PdfColor accentColor;
     switch (leaveType) {
       case 'medical':
-        recipient = 'The Vice Principal';
+        accentColor = PdfColor.fromInt(0xFFE91E63);
         break;
       case 'on_duty':
-        recipient = 'The Head of the Department';
+        accentColor = PdfColor.fromInt(0xFF9C27B0);
+        break;
+      case 'emergency':
+        accentColor = PdfColor.fromInt(0xFFFF9800);
         break;
       default:
-        recipient = 'The Class Incharge';
+        accentColor = PdfColor.fromInt(0xFF00A86B);
     }
-
+    
+    // Load fonts
+    pw.Font? regularFont;
+    pw.Font? boldFont;
+    pw.Font? italicFont;
+    
+    try {
+      regularFont = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+      boldFont = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+      italicFont = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Italic.ttf'));
+    } catch (e) {
+      // Fonts not found, will use default
+      print('Fonts not loaded: $e');
+    }
+    
     pdf.addPage(pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.symmetric(horizontal: 50, vertical: 42),
-      build: (ctx) =>
-          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        // ── Header ────────────────────────────────────────────────────────
-        pw.Container(
-          padding: const pw.EdgeInsets.all(14),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.blueGrey300),
-            borderRadius: pw.BorderRadius.circular(6),
-          ),
-          child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                if (logo != null) ...[logo, pw.SizedBox(width: 14)],
-                pw.Expanded(
-                    child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
-                        children: [
-                      pw.Text('BISHOP HEBER COLLEGE',
-                          style: bld(15, color: accent)),
-                      pw.Text('(Autonomous) | Reaccredited with A++ by NAAC',
-                          style: base(8, color: PdfColors.grey600)),
-                      pw.Text('Puthur, Tiruchirappalli – 620 017',
-                          style: base(8, color: PdfColors.grey600)),
-                      pw.SizedBox(height: 6),
+      pageFormat: PdfPageFormat.a4.copyWith(
+        marginLeft: 50,
+        marginRight: 50,
+        marginTop: 50,
+        marginBottom: 50,
+      ),
+      build: (context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // ========== HEADER ==========
+            pw.Center(
+              child: pw.Column(children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    if (logoBytes != null)
                       pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: pw.BoxDecoration(
-                            color: light,
-                            borderRadius: pw.BorderRadius.circular(4)),
-                        child: pw.Text(
-                            'LEAVE APPLICATION – ${config.label.toUpperCase()}',
-                            style: bld(9, color: accent)),
+                        width: 50,
+                        height: 50,
+                        margin: const pw.EdgeInsets.only(right: 12),
+                        child: pw.Image(pw.MemoryImage(logoBytes), fit: pw.BoxFit.contain),
                       ),
-                    ])),
-              ]),
-        ),
-        pw.SizedBox(height: 18),
-
-        // ── Date / Ref ─────────────────────────────────────────────────────
-        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-          pw.Text('Date: ${fmt.format(DateTime.now())}', style: base(10)),
-          pw.Text('Ref No: _______________',
-              style: base(10, color: PdfColors.grey500)),
-        ]),
-        pw.SizedBox(height: 14),
-
-        // ── To ────────────────────────────────────────────────────────────
-        pw.Text('To,', style: base(11)),
-        pw.SizedBox(height: 3),
-        pw.Text(recipient, style: bld(11)),
-        pw.Text('Bishop Heber College, Puthur, Tiruchirappalli – 620 017',
-            style: base(11)),
-        pw.SizedBox(height: 14),
-
-        // ── Subject ───────────────────────────────────────────────────────
-        pw.Row(children: [
-          pw.Text('Sub : ', style: bld(11)),
-          pw.Expanded(
-              child: pw.Text(
-                  'Application for ${config.label} from ${sFmt.format(fromDate)} to ${sFmt.format(toDate)} ($days ${days == 1 ? "day" : "days"})',
-                  style: base(11))),
-        ]),
-        pw.SizedBox(height: 14),
-        pw.Text('Respected Sir/Madam,', style: base(11)),
-        pw.SizedBox(height: 8),
-
-        // ── Body ──────────────────────────────────────────────────────────
-        pw.Text(
-            '        I, ${student.name}, Roll No. ${student.rollNo}, studying in ${student.deptName}, '
-            '${student.yearLabel} Year, Section – ${student.section}, ${student.shift}, '
-            'respectfully request you to grant me ${config.label.toLowerCase()} for $days '
-            '${days == 1 ? "day" : "days"} from ${fmt.format(fromDate)} to ${fmt.format(toDate)}.',
-            style: base(11),
-            textAlign: pw.TextAlign.justify),
-        pw.SizedBox(height: 8),
-        pw.Text('        Reason : $reason',
-            style: base(11), textAlign: pw.TextAlign.justify),
-        pw.SizedBox(height: 8),
-        pw.Text(
-            '        I request you to kindly grant me the above leave and oblige.',
-            style: base(11)),
-        pw.SizedBox(height: 20),
-        pw.Text('Thanking you,', style: base(11)),
-        pw.Text('Yours obediently,', style: base(11)),
-        pw.SizedBox(height: 30),
-
-        // ── Applicant signature ───────────────────────────────────────────
-        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text(student.name, style: bld(11)),
-            pw.Text('Roll No : ${student.rollNo}', style: base(10)),
-            pw.Text('Dept     : ${student.deptName}', style: base(10)),
-          ]),
-          pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.SizedBox(height: 30),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text('BISHOP HEBER COLLEGE', 
+                            style: pw.TextStyle(
+                              font: boldFont,
+                              fontSize: 18,
+                              fontWeight: pw.FontWeight.bold,
+                              color: navyBlue,
+                            )),
+                        pw.SizedBox(height: 4),
+                        pw.Text('(Autonomous)', 
+                            style: pw.TextStyle(font: regularFont, fontSize: 10, color: mediumGray)),
+                        pw.Text('Reaccredited with A++ Grade by NAAC', 
+                            style: pw.TextStyle(font: regularFont, fontSize: 9, color: mediumGray)),
+                        pw.Text('Puthur, Tiruchirappalli – 620 017', 
+                            style: pw.TextStyle(font: regularFont, fontSize: 9, color: mediumGray)),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+                pw.Container(height: 2, color: gold),
+                pw.SizedBox(height: 6),
                 pw.Container(
-                    width: 120,
-                    child:
-                        pw.Divider(color: PdfColors.grey700, thickness: 0.8)),
-                pw.Text('(Student Signature)',
-                    style: base(9, color: PdfColors.grey600)),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xFFFDF8E7),
+                    border: pw.Border.all(color: gold, width: 0.5),
+                  ),
+                  child: pw.Text(
+                    'APPLICATION FOR ${config.label.toUpperCase()} LEAVE',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                      color: navyBlue,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Container(height: 1, color: gold),
               ]),
-        ]),
-        pw.SizedBox(height: 28),
-        pw.Divider(color: PdfColors.grey300, thickness: 0.8),
-        pw.SizedBox(height: 10),
-
-        // ── Office use ────────────────────────────────────────────────────
-        pw.Text('FOR OFFICE USE ONLY',
-            style: pw.TextStyle(
-                font: bold,
-                fontSize: 9,
-                color: PdfColors.grey600,
-                letterSpacing: 1.5)),
-        pw.SizedBox(height: 14),
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-          children: config.signatures
-              .map((sig) => pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+            ),
+            
+            pw.SizedBox(height: 30),
+            
+            // ========== DATE ==========
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Date: $today', 
+                        style: pw.TextStyle(font: regularFont, fontSize: 10.5, color: mediumGray)),
+                    pw.SizedBox(height: 4),
+                    pw.Container(width: 100, height: 0.5, color: mediumGray),
+                  ],
+                ),
+              ],
+            ),
+            
+            pw.SizedBox(height: 20),
+            
+            // ========== RECIPIENT ==========
+            pw.Text('To,', style: pw.TextStyle(font: regularFont, fontSize: 11)),
+            pw.SizedBox(height: 6),
+            pw.Text(config.recipientDesignation, 
+                style: pw.TextStyle(font: boldFont, fontSize: 12, fontWeight: pw.FontWeight.bold)),
+            pw.Text(student.deptName, 
+                style: pw.TextStyle(font: regularFont, fontSize: 11, color: mediumGray)),
+            pw.Text('Bishop Heber College', 
+                style: pw.TextStyle(font: regularFont, fontSize: 11, color: mediumGray)),
+            pw.Text('Tiruchirappalli - 620 017', 
+                style: pw.TextStyle(font: regularFont, fontSize: 11, color: mediumGray)),
+            
+            pw.SizedBox(height: 25),
+            
+            // ========== SUBJECT ==========
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromInt(0xFFF0F9F0),
+              ),
+              child: pw.Row(
+                children: [
+                  pw.Text('Subject:', 
+                      style: pw.TextStyle(font: boldFont, fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(width: 6),
+                  pw.Expanded(
+                    child: pw.Text(
+                      'Application for ${config.label} Leave – $fromDateStr to $toDateStr',
+                      style: pw.TextStyle(font: regularFont, fontSize: 11, color: accentColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            pw.SizedBox(height: 20),
+            
+            // ========== SALUTATION ==========
+            pw.Text('Respected Sir / Madam,', 
+                style: pw.TextStyle(font: italicFont, fontSize: 11.5)),
+            
+            pw.SizedBox(height: 12),
+            
+            // ========== BODY ==========
+            pw.Text(
+              'I, ${student.name}, a student of ${student.deptName}, '
+              '${_getYearOrdinal(student.cyear)} Year, Section – ${student.section} '
+              '(${student.shift}), bearing Roll Number ${student.rollNo}, '
+              'most respectfully submit that I am unable to attend the college '
+              'from $fromDateStr to $toDateStr ($days days) due to $reason.\n\n'
+              'Therefore, I humbly request you to kindly grant me '
+              '${config.label.toLowerCase()} leave for $days days and oblige. '
+              'I assure you that I will compensate for any academic loss during this period.',
+              style: pw.TextStyle(font: regularFont, fontSize: 11),
+              textAlign: pw.TextAlign.justify,
+            ),
+            
+            pw.SizedBox(height: 35),
+            
+            // ========== SIGNATURE ==========
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Container(width: 160, child: pw.Divider(thickness: 0.8)),
+                    pw.SizedBox(height: 4),
+                    pw.Text(student.name, 
+                        style: pw.TextStyle(font: boldFont, fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Roll No: ${student.rollNo}', 
+                        style: pw.TextStyle(font: regularFont, fontSize: 10, color: mediumGray)),
+                    pw.Text('${student.deptName}, ${_getYearOrdinal(student.cyear)} Year', 
+                        style: pw.TextStyle(font: regularFont, fontSize: 10, color: mediumGray)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.SizedBox(height: 20),
+                    pw.Container(width: 150, child: pw.Divider(thickness: 0.8)),
+                    pw.Text('(Student Signature)', 
+                        style: pw.TextStyle(font: italicFont, fontSize: 9, color: mediumGray)),
+                  ],
+                ),
+              ],
+            ),
+            
+            pw.SizedBox(height: 35),
+            
+            // ========== OFFICE USE ==========
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                color: lightGray,
+                border: pw.Border.all(color: borderGray, width: 0.5),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('FOR OFFICE USE ONLY', 
+                      style: pw.TextStyle(font: boldFont, fontSize: 9, fontWeight: pw.FontWeight.bold, color: gold)),
+                  pw.SizedBox(height: 12),
+                  pw.Container(height: 0.5, color: borderGray),
+                  pw.SizedBox(height: 12),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Container(
-                          width: 110,
-                          height: 52,
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.grey400),
-                            borderRadius: pw.BorderRadius.circular(4),
-                          )),
-                      pw.SizedBox(height: 5),
-                      pw.Container(
-                          width: 110,
-                          child: pw.Divider(
-                              color: PdfColors.grey700, thickness: 0.8)),
-                      pw.Text(sig, style: bld(9)),
-                      pw.Text('Signature & Seal',
-                          style: base(8, color: PdfColors.grey500)),
-                      pw.Text('Date: ______________',
-                          style: base(8, color: PdfColors.grey500)),
+                      for (int i = 0; i < config.signatures.length; i++)
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.Container(
+                                height: 60,
+                                width: double.infinity,
+                                decoration: pw.BoxDecoration(
+                                  border: pw.Border.all(color: borderGray, width: 0.5),
+                                ),
+                              ),
+                              pw.SizedBox(height: 8),
+                              pw.Container(width: double.infinity, height: 0.5, color: borderGray),
+                              pw.SizedBox(height: 4),
+                              pw.Text(config.signatures[i], 
+                                  style: pw.TextStyle(font: boldFont, fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                              pw.Text('Date: ___________', 
+                                  style: pw.TextStyle(font: regularFont, fontSize: 8, color: mediumGray)),
+                            ],
+                          ),
+                        ),
                     ],
-                  ))
-              .toList(),
-        ),
-        pw.SizedBox(height: 16),
-        pw.Divider(color: PdfColors.grey200, thickness: 0.5),
-        pw.SizedBox(height: 4),
-        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-          pw.Text('Generated by BHC ERP',
-              style: base(7, color: PdfColors.grey400)),
-          pw.Text('Printed: ${sFmt.format(DateTime.now())}',
-              style: base(7, color: PdfColors.grey400)),
-        ]),
-      ]),
+                  ),
+                ],
+              ),
+            ),
+            
+            pw.SizedBox(height: 20),
+            
+            // ========== FOOTER ==========
+            pw.Container(height: 0.5, color: mediumGray),
+            pw.SizedBox(height: 8),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Generated by Bishop Heber College ERP System', 
+                    style: pw.TextStyle(font: italicFont, fontSize: 7.5, color: mediumGray)),
+                pw.Text('Page 1 of 1', 
+                    style: pw.TextStyle(font: regularFont, fontSize: 7.5, color: mediumGray)),
+              ],
+            ),
+          ],
+        );
+      },
     ));
+    
     return pdf.save();
   }
+  
+  static String _getYearOrdinal(String year) {
+    switch (year) {
+      case '1': return 'First';
+      case '2': return 'Second';
+      case '3': return 'Third';
+      case '4': return 'Fourth';
+      default: return '${year}th';
+    }
+  }
 }
+
+// Helper class
+class _LeaveTypeConfig {
+  final String label;
+  final String recipientDesignation;
+  final List<String> signatures;
+  
+  const _LeaveTypeConfig({
+    required this.label,
+    required this.recipientDesignation,
+    required this.signatures,
+  });
+}
+
+_LeaveTypeConfig _getLeaveTypeConfig(String leaveType) {
+  switch (leaveType) {
+    case 'medical':
+      return _LeaveTypeConfig(
+        label: 'Medical',
+        recipientDesignation: 'The Vice Principal',
+        signatures: ['Class Incharge', 'HOD', 'Vice Principal'],
+      );
+    case 'on_duty':
+      return _LeaveTypeConfig(
+        label: 'On Duty',
+        recipientDesignation: 'The Head of the Department',
+        signatures: ['Class Incharge', 'HOD', 'Vice Principal'],
+      );
+    case 'emergency':
+      return _LeaveTypeConfig(
+        label: 'Emergency',
+        recipientDesignation: 'The Class Incharge',
+        signatures: ['Class Incharge', 'HOD'],
+      );
+    default: // casual
+      return _LeaveTypeConfig(
+        label: 'Casual',
+        recipientDesignation: 'The Class Incharge',
+        signatures: ['Class Incharge', 'HOD'],
+      );
+  }
+}
+
+
+
+// Helper to get font references (make these global or pass them properly)
+pw.Font? regularFont;
+pw.Font? boldFont;
+pw.Font? italicFont;
+pw.Font? lightFont;
+
+// Make sure to load fonts asynchronously - add this initialization
+Future<void> initializePdfFonts() async {
+  try {
+    final regularData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+    final boldData = await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
+    final italicData = await rootBundle.load('assets/fonts/Roboto-Italic.ttf');
+    final lightData = await rootBundle.load('assets/fonts/Roboto-Light.ttf');
+    
+    regularFont = pw.Font.ttf(regularData);
+    boldFont = pw.Font.ttf(boldData);
+    italicFont = pw.Font.ttf(italicData);
+    lightFont = pw.Font.ttf(lightData);
+  } catch (e) {
+    debugPrint('Font loading failed: $e');
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -1449,52 +1624,215 @@ class _SuccessDialogState extends State<_SuccessDialog>
       );
       final filename =
           'BHC_Leave_${widget.student.rollNo}_${DateFormat('yyyyMMdd').format(widget.fromDate)}.pdf';
-      Directory dir;
-      if (Platform.isAndroid) {
-        dir = Directory('/storage/emulated/0/Download');
-        if (!await dir.exists()) dir = await getApplicationDocumentsDirectory();
-      } else {
+      if (mounted) {
+        await _showSaveOptions(context, bytes, filename, c);
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('PDF error: $e'), backgroundColor: c.pink));
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  Future<void> _showSaveOptions(BuildContext ctx, Uint8List bytes,
+      String filename, ThemeProvider c) async {
+    await showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border(top: BorderSide(color: c.border)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Save PDF As',
+                style: TextStyle(
+                    color: c.textHigh,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(filename,
+                style: TextStyle(color: c.textLow, fontSize: 11),
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 16),
+            _saveOption(
+              ctx,
+              c,
+              icon: Icons.download_rounded,
+              color: c.cyan,
+              title: 'Save to Downloads',
+              subtitle: 'Internal storage / Downloads folder',
+              onTap: () async {
+                Navigator.pop(ctx);
+                await _saveToDownloads(bytes, filename, c);
+              },
+            ),
+            const SizedBox(height: 10),
+            _saveOption(
+              ctx,
+              c,
+              icon: Icons.folder_open_rounded,
+              color: c.violet,
+              title: 'Save to Documents',
+              subtitle: 'App documents folder',
+              onTap: () async {
+                Navigator.pop(ctx);
+                await _saveToDocuments(bytes, filename, c);
+              },
+            ),
+            const SizedBox(height: 10),
+            _saveOption(
+              ctx,
+              c,
+              icon: Icons.share_rounded,
+              color: c.amber,
+              title: 'Share / Open With',
+              subtitle: 'Share via WhatsApp, email, etc.',
+              onTap: () async {
+                Navigator.pop(ctx);
+                await _sharePdf(bytes, filename, c);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _saveOption(
+    BuildContext ctx,
+    ThemeProvider c, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color.withOpacity(0.07),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: TextStyle(
+                          color: c.textHigh,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  Text(subtitle,
+                      style: TextStyle(color: c.textLow, fontSize: 11)),
+                ])),
+            Icon(Icons.chevron_right_rounded, color: c.textLow, size: 18),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveToDownloads(
+      Uint8List bytes, String filename, ThemeProvider c) async {
+    try {
+      Directory dir = Directory('/storage/emulated/0/Download');
+      if (!Platform.isAndroid || !await dir.exists()) {
         dir = await getApplicationDocumentsDirectory();
       }
       final file = File('${dir.path}/$filename');
       await file.writeAsBytes(bytes);
       if (mounted) {
-        setState(() {
-          _savedPath = file.path;
-          _generating = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Row(children: [
-            const Icon(Icons.download_done_rounded,
-                color: Colors.white, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Text('Saved to Downloads: $filename',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12))),
-          ]),
-          backgroundColor: const Color(0xFF00E5A0),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(12),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-              label: 'Open',
-              textColor: Colors.white,
-              onPressed: () => OpenFile.open(file.path)),
-        ));
-        return;
+        setState(() => _savedPath = file.path);
+        _showDownloadComplete(file.path, filename, c);
       }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('PDF error: $e'), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) setState(() => _generating = false);
+            content: Text('Save failed: $e'), backgroundColor: c.pink));
     }
+  }
+
+  Future<void> _saveToDocuments(
+      Uint8List bytes, String filename, ThemeProvider c) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(bytes);
+      if (mounted) {
+        setState(() => _savedPath = file.path);
+        _showDownloadComplete(file.path, filename, c);
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Save failed: $e'), backgroundColor: c.pink));
+    }
+  }
+
+  Future<void> _sharePdf(
+      Uint8List bytes, String filename, ThemeProvider c) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(bytes);
+      await OpenFile.open(file.path);
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Share failed: $e'), backgroundColor: c.pink));
+    }
+  }
+
+  void _showDownloadComplete(String path, String filename, ThemeProvider c) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+        builder: (_) => _DownloadNotification(
+              filename: filename,
+              path: path,
+              onOpen: () {
+                entry.remove();
+                OpenFile.open(path);
+              },
+              onDismiss: () => entry.remove(),
+              c: c,
+            ));
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 5), () {
+      if (entry.mounted) entry.remove();
+    });
   }
 
   @override
@@ -1745,13 +2083,16 @@ class _SuccessDialogState extends State<_SuccessDialog>
                                           size: 16,
                                           color: Colors.white),
                                       const SizedBox(width: 6),
-                                      Text(
-                                          _savedPath != null
-                                              ? 'Open PDF'
-                                              : 'Download PDF',
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700)),
+                                      Flexible(
+                                          child: Text(
+                                              _savedPath != null
+                                                  ? 'Open PDF'
+                                                  : 'Download PDF',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight:
+                                                      FontWeight.w700))),
                                     ]),
                         ),
                       ),
@@ -2533,44 +2874,287 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
       );
       final fname =
           'BHC_Leave_${app.rollNo}_${DateFormat('yyyyMMdd').format(app.fromDate)}.pdf';
-      Directory dlDir;
-      if (Platform.isAndroid) {
-        dlDir = Directory('/storage/emulated/0/Download');
-        if (!await dlDir.exists())
-          dlDir = await getApplicationDocumentsDirectory();
-      } else {
-        dlDir = await getApplicationDocumentsDirectory();
+      if (mounted) {
+        await _showSaveOptionsStandalone(context, bytes, fname, c);
       }
-      final outFile = File('${dlDir.path}/$fname');
-      await outFile.writeAsBytes(bytes);
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Row(children: [
-            const Icon(Icons.download_done_rounded,
-                color: Colors.white, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Text('Saved: $fname',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12))),
-          ]),
-          backgroundColor: const Color(0xFF00E5A0),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(12),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-              label: 'Open',
-              textColor: Colors.white,
-              onPressed: () => OpenFile.open(outFile.path)),
-        ));
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('PDF error: $e'), backgroundColor: c.pink));
     }
   }
+
+  Widget _saveOption(
+    BuildContext ctx,
+    ThemeProvider c, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color.withOpacity(0.07),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: TextStyle(
+                          color: c.textHigh,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  Text(subtitle,
+                      style: TextStyle(color: c.textLow, fontSize: 11)),
+                ])),
+            Icon(Icons.chevron_right_rounded, color: c.textLow, size: 18),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showDownloadComplete(String path, String filename, ThemeProvider c) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+        builder: (_) => _DownloadNotification(
+              filename: filename,
+              path: path,
+              onOpen: () {
+                entry.remove();
+                OpenFile.open(path);
+              },
+              onDismiss: () => entry.remove(),
+              c: c,
+            ));
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 5), () {
+      if (entry.mounted) entry.remove();
+    });
+  }
+
+  Future<void> _showSaveOptionsStandalone(BuildContext ctx, Uint8List bytes,
+      String filename, ThemeProvider c) async {
+    await showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border(top: BorderSide(color: c.border)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: c.border,
+                        borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            Text('Save PDF As',
+                style: TextStyle(
+                    color: c.textHigh,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(filename,
+                style: TextStyle(color: c.textLow, fontSize: 11),
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 16),
+            _saveOption(ctx, c,
+                icon: Icons.download_rounded,
+                color: c.cyan,
+                title: 'Save to Downloads',
+                subtitle: 'Internal storage / Downloads folder',
+                onTap: () async {
+              Navigator.pop(ctx);
+              try {
+                Directory dir = Directory('/storage/emulated/0/Download');
+                if (!Platform.isAndroid || !await dir.exists())
+                  dir = await getApplicationDocumentsDirectory();
+                final file = File('${dir.path}/$filename');
+                await file.writeAsBytes(bytes);
+                if (mounted) _showDownloadComplete(file.path, filename, c);
+              } catch (e) {
+                if (mounted)
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Save failed: $e'),
+                      backgroundColor: c.pink));
+              }
+            }),
+            const SizedBox(height: 10),
+            _saveOption(ctx, c,
+                icon: Icons.share_rounded,
+                color: c.amber,
+                title: 'Share / Open With',
+                subtitle: 'Share via WhatsApp, email, etc.', onTap: () async {
+              Navigator.pop(ctx);
+              try {
+                final dir = await getTemporaryDirectory();
+                final file = File('${dir.path}/$filename');
+                await file.writeAsBytes(bytes);
+                await OpenFile.open(file.path);
+              } catch (e) {
+                if (mounted)
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Share failed: $e'),
+                      backgroundColor: c.pink));
+              }
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOWNLOAD COMPLETE NOTIFICATION OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _DownloadNotification extends StatefulWidget {
+  final String filename, path;
+  final VoidCallback onOpen, onDismiss;
+  final ThemeProvider c;
+  const _DownloadNotification({
+    required this.filename,
+    required this.path,
+    required this.onOpen,
+    required this.onDismiss,
+    required this.c,
+  });
+  @override
+  State<_DownloadNotification> createState() => _DownloadNotificationState();
+}
+
+class _DownloadNotificationState extends State<_DownloadNotification>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<Offset> _slide;
+  late Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 350));
+    _slide = Tween<Offset>(begin: const Offset(0, -1.2), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 12,
+      left: 16,
+      right: 16,
+      child: SlideTransition(
+        position: _slide,
+        child: FadeTransition(
+          opacity: _fade,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: c.elevated,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: c.cyan.withOpacity(0.35)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: c.cyan.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.download_done_rounded,
+                      color: c.cyan, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text('Download Complete',
+                          style: TextStyle(
+                              color: c.textHigh,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(widget.filename,
+                          style: TextStyle(color: c.textLow, fontSize: 11),
+                          overflow: TextOverflow.ellipsis),
+                    ])),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: widget.onOpen,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: c.cyan,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text('Open',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: widget.onDismiss,
+                  child: Icon(Icons.close_rounded, color: c.textLow, size: 18),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+     
