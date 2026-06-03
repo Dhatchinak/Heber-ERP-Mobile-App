@@ -242,9 +242,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 //     }
 //   }
 
-
-
-
   Widget _buildProfileImageWithAvatar() {
     final _C = Provider.of<ThemeProvider>(context);
 
@@ -1168,8 +1165,9 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   const SizedBox(width: 8),
                   // BEAUTIFUL AVATAR WIDGET - Keep this!
                   GestureDetector(
-                    // onTap: () => _openAvatarCreator(),
                     onLongPress: _toggleDisplayMode,
+                    onTap: () => _handleProfileTap(context,
+                        Provider.of<ThemeProvider>(context, listen: false)),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       width: 38,
@@ -1703,9 +1701,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   //     ),
   //   );
   // }
-
-
-
 
   Widget _navGroup(String title, List<Widget> items) {
     final _C = Provider.of<ThemeProvider>(context);

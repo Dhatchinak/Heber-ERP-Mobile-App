@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Dark Colors - Space Premium
 class DarkColors {
@@ -45,38 +46,61 @@ class LightColors {
 }
 
 class AppThemeProvider extends ChangeNotifier {
-  bool _isDarkMode = true;
+  static const _key = 'app_is_dark_mode';
+
+  bool _isDarkMode = true; // default: dark
 
   bool get isDarkMode => _isDarkMode;
 
+  /// Call this once at startup (in main.dart before runApp)
+  Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    // If key doesn't exist yet, default to dark (true)
+    _isDarkMode = prefs.getBool(_key) ?? true;
+    notifyListeners();
+  }
+
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
+    _persist();
     notifyListeners();
   }
 
   void setDarkMode(bool value) {
     if (_isDarkMode == value) return;
     _isDarkMode = value;
+    _persist();
     notifyListeners();
+  }
+
+  Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, _isDarkMode);
   }
 
   // Core tokens
   Color get bg => _isDarkMode ? DarkColors.bg : LightColors.bg;
   Color get surface => _isDarkMode ? DarkColors.surface : LightColors.surface;
-  Color get elevated => _isDarkMode ? DarkColors.elevated : LightColors.elevated;
-  Color get elevated2 => _isDarkMode ? DarkColors.elevated2 : LightColors.elevated2;
+  Color get elevated =>
+      _isDarkMode ? DarkColors.elevated : LightColors.elevated;
+  Color get elevated2 =>
+      _isDarkMode ? DarkColors.elevated2 : LightColors.elevated2;
   Color get border => _isDarkMode ? DarkColors.border : LightColors.border;
-  Color get borderBright => _isDarkMode ? DarkColors.borderBright : LightColors.borderBright;
+  Color get borderBright =>
+      _isDarkMode ? DarkColors.borderBright : LightColors.borderBright;
   Color get cyan => _isDarkMode ? DarkColors.cyan : LightColors.cyan;
   Color get cyanDim => _isDarkMode ? DarkColors.cyanDim : LightColors.cyanDim;
   Color get violet => _isDarkMode ? DarkColors.violet : LightColors.violet;
-  Color get violetBright => _isDarkMode ? DarkColors.violetBright : LightColors.violetBright;
+  Color get violetBright =>
+      _isDarkMode ? DarkColors.violetBright : LightColors.violetBright;
   Color get pink => _isDarkMode ? DarkColors.pink : LightColors.pink;
   Color get pinkDim => _isDarkMode ? DarkColors.pinkDim : LightColors.pinkDim;
   Color get green => _isDarkMode ? DarkColors.green : LightColors.green;
-  Color get greenDim => _isDarkMode ? DarkColors.greenDim : LightColors.greenDim;
+  Color get greenDim =>
+      _isDarkMode ? DarkColors.greenDim : LightColors.greenDim;
   Color get amber => _isDarkMode ? DarkColors.amber : LightColors.amber;
-  Color get textHigh => _isDarkMode ? DarkColors.textHigh : LightColors.textHigh;
+  Color get textHigh =>
+      _isDarkMode ? DarkColors.textHigh : LightColors.textHigh;
   Color get textMid => _isDarkMode ? DarkColors.textMid : LightColors.textMid;
   Color get textLow => _isDarkMode ? DarkColors.textLow : LightColors.textLow;
 
@@ -93,11 +117,23 @@ class AppThemeProvider extends ChangeNotifier {
 
   List<Color> get bgGradient => _isDarkMode
       ? [const Color(0xFF05060F), const Color(0xFF0B0D1C)]
-      : [const Color(0xFFF5F6FF), const Color(0xFFFAF5FF), const Color(0xFFECEEFF)];
+      : [
+          const Color(0xFFF5F6FF),
+          const Color(0xFFFAF5FF),
+          const Color(0xFFECEEFF)
+        ];
 
   List<Color> get bannerGradient => _isDarkMode
-      ? [const Color(0xFF0B0E23), const Color(0xFF0F1230), const Color(0xFF130D25)]
-      : [const Color(0xFFEFF1FF), const Color(0xFFE8ECFF), const Color(0xFFEEE8FF)];
+      ? [
+          const Color(0xFF0B0E23),
+          const Color(0xFF0F1230),
+          const Color(0xFF130D25)
+        ]
+      : [
+          const Color(0xFFEFF1FF),
+          const Color(0xFFE8ECFF),
+          const Color(0xFFEEE8FF)
+        ];
 
   List<Color> get accentGradient => _isDarkMode
       ? [DarkColors.cyan, DarkColors.violet, DarkColors.pink]

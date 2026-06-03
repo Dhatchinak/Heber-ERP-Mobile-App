@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DarkColors {
   static const bg = Color(0xFF05060F);
@@ -57,16 +58,29 @@ class LightColors {
   static const textLow = Color(0xFF9CA3AF);
 }
 
-// ─── ThemeProvider ────────────────────────────────────────────────────────────
 class ThemeProvider extends ChangeNotifier {
+  static const _key = 'student_theme_dark';
   bool _isDarkMode = true;
+
+  ThemeProvider() {
+    _load();
+  }
 
   bool get isDarkMode => _isDarkMode;
 
-  void toggleTheme() {
-    _isDarkMode = !_isDarkMode;
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isDarkMode = prefs.getBool(_key) ?? true;
     notifyListeners();
   }
+
+  Future<void> toggleTheme() async {
+    _isDarkMode = !_isDarkMode;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, _isDarkMode);
+  }
+
 
   // ── Core tokens ─────────────────────────────────────────────────────────────
   Color get bg => _isDarkMode ? DarkColors.bg : LightColors.bg;

@@ -18,23 +18,32 @@ void main() async {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
+
   final authProvider = AuthProvider();
   await authProvider.init();
-  runApp(MyApp(authProvider: authProvider));
+
+  final themeProvider = AppThemeProvider();
+  await themeProvider.init();
+
+  runApp(MyApp(authProvider: authProvider, themeProvider: themeProvider));
 }
 
 class MyApp extends StatelessWidget {
   final AuthProvider authProvider;
-  const MyApp({super.key, required this.authProvider});
+  final AppThemeProvider themeProvider;
+
+  const MyApp(
+      {super.key, required this.authProvider, required this.themeProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => AppThemeProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => StaffThemeProvider()),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => authProvider),
+        ChangeNotifierProvider<AppThemeProvider>(create: (_) => themeProvider),
+        ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider<StaffThemeProvider>(
+            create: (_) => StaffThemeProvider()),
       ],
       child: const _AppRoot(),
     );

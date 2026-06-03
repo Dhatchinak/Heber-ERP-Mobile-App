@@ -699,4 +699,3 @@ class _OTPLoginScreenState extends State<OTPLoginScreen>
     );
   }
 }
- 
