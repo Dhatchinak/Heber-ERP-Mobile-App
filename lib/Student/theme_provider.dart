@@ -60,7 +60,7 @@ class LightColors {
 
 class ThemeProvider extends ChangeNotifier {
   static const _key = 'student_theme_dark';
-  bool _isDarkMode = true;
+  bool _isDarkMode = false;
 
   ThemeProvider() {
     _load();
@@ -70,7 +70,7 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool(_key) ?? true;
+    _isDarkMode = prefs.getBool(_key) ?? false;
     notifyListeners();
   }
 
@@ -80,7 +80,6 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_key, _isDarkMode);
   }
-
 
   // ── Core tokens ─────────────────────────────────────────────────────────────
   Color get bg => _isDarkMode ? DarkColors.bg : LightColors.bg;

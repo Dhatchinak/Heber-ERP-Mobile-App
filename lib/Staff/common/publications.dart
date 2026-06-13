@@ -2278,7 +2278,7 @@ class _EnhancedPublicationsScreenState extends State<EnhancedPublicationsScreen>
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 6),
                   itemBuilder: (_, i) {
-                    final s = filtered[i] as Map<String, dynamic>;
+                    final s = filtered[i];
                     final id = s['staff_id'] ?? '';
                     final sel = temp.contains(id);
                     return GestureDetector(

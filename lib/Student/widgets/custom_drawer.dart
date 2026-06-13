@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:bhc_erp/Student/screens/academic_calendar.dart';
+import 'package:bhc_erp/Student/screens/fees_page.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
 import 'package:bhc_erp/Student/screens/attendance_screen.dart';
@@ -200,9 +201,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         _fetchStudentProfile(rollNo),
       ]).timeout(const Duration(seconds: 10), onTimeout: () => [{}, {}, {}]);
 
-      final calData = results[0] as Map<String, dynamic>;
-      final attData = results[1] as Map<String, dynamic>;
-      final profile = results[2] as Map<String, dynamic>;
+      final calData = results[0];
+      final attData = results[1];
+      final profile = results[2];
 
       final semInfo = _calcSemInfo(calData);
       final att = _calcAttendancePct(attData);
@@ -595,6 +596,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final isExamResults = widget.currentRoute == '/exam-results';
     final isSeating = widget.currentRoute == '/seating';
     final isCalendar = widget.currentRoute == '/calendar';
+    final isFees = widget.currentRoute == '/fees';
 
     final displayRollNo = _rollNo.isNotEmpty ? _rollNo : widget.rollNo;
     final displayName =
@@ -873,6 +875,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       _navItem(Icons.event_rounded, "Academic Calendar",
                           c.amber, isCalendar, c,
                           onTap: () => _navigateTo(AcademicCalendarScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                    ]),
+                    _navGroup("FINANCE", [
+                      _navItem(Icons.receipt_long_rounded, "Fee History",
+                          c.green, isFees, c,
+                          onTap: () => _navigateTo(FeesHistoryScreen(
                               rollNo: displayRollNo,
                               studentName: displayName))),
                     ]),
@@ -1236,7 +1245,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
               if (dayObj is! Map<String, dynamic>) continue;
               dayObj.forEach((_, dayData) {
                 if (dayData is! Map) return;
-                final hours = (dayData as Map)['hours'] as List? ?? [];
+                final hours = (dayData)['hours'] as List? ?? [];
                 if (hours.isEmpty) return;
                 totalDays++;
                 final present = hours

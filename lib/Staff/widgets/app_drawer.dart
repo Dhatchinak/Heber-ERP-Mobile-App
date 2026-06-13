@@ -557,19 +557,25 @@ class _DrawerNav extends StatelessWidget {
               ),
             ],
           ),
-          _NavItem(
-            icon: Icons.event_rounded,
-            label: 'Academic Calendar',
-            isSelected: _isActive('/academic-calendar'),
+          _NavSection(
+            title: 'CAMPUS',
             theme: theme,
-            onTap: () => _navigateToRoute(
-              context,
-              '/academic-calendar',
-              page: AcademicCalendarScreen(
-                rollNo: '',
-                studentName: '',
+            items: [
+              _NavItem(
+                icon: Icons.event_rounded,
+                label: 'Academic Calendar',
+                isSelected: _isActive('/academic-calendar'),
+                theme: theme,
+                onTap: () => _navigateToRoute(
+                  context,
+                  '/academic-calendar',
+                  page: AcademicCalendarScreen(
+                    rollNo: '',
+                    studentName: '',
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
           if (isHod)
             _NavSection(

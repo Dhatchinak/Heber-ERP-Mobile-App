@@ -30,7 +30,7 @@ class _StaffDashboardState extends State<StaffDashboard>
     with TickerProviderStateMixin {
   String? _currentStaffId;
   late Future<Map<String, dynamic>> _dashboardDataFuture;
-  Timer? _refreshTimer;
+  // Timer? _refreshTimer;
   bool _isRefreshing = false;
   String? _photoUrl;
 
@@ -80,9 +80,9 @@ class _StaffDashboardState extends State<StaffDashboard>
     _fetchPhoto();
     _welcomeCtrl.forward();
     _staggerCtrl.forward();
-    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      if (mounted) _refreshData();
-    });
+    // _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+    //   if (mounted) _refreshData();
+    // });
   }
 
   @override
@@ -91,7 +91,6 @@ class _StaffDashboardState extends State<StaffDashboard>
     _pulseCtrl.dispose();
     _staggerCtrl.dispose();
     _welcomeCtrl.dispose();
-    _refreshTimer?.cancel();
     super.dispose();
   }
 

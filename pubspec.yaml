@@ -51,7 +51,8 @@ flutter:
     - assets/
     - assets/bhclogo.png
     - assets/logo.png
-    - assets/fonts/   
+    - assets/fonts/
+    
     
   fonts:
     - family: Roboto

@@ -929,7 +929,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
         if (dayObj is! Map<String, dynamic>) continue;
         dayObj.forEach((_, dayData) {
           if (dayData is! Map) return;
-          final hours = (dayData as Map)['hours'] as List? ?? [];
+          final hours = (dayData)['hours'] as List? ?? [];
           if (hours.isEmpty) return;
           totalDays++;
           final present = hours
