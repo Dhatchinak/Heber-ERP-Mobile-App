@@ -2016,7 +2016,7 @@ Future<Uint8List> _generateTuitionPDF({
 
                 pw.SizedBox(height: 24),
 
-                // 2. Student Details Block
+                //2. Student Details Block
                 pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -2056,7 +2056,7 @@ Future<Uint8List> _generateTuitionPDF({
                 pw.Divider(thickness: 1, color: PdfColors.black),
                 pw.SizedBox(height: 16),
 
-                // 3. Fee Paid Details Title & Receipt Info
+                //3. Fee Paid Details Title & Receipt Info
                 pw.Center(
                   child: pw.Text(
                     'Fee Paid Details',

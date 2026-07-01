@@ -184,7 +184,6 @@ class _AuthWrapperState extends State<AuthWrapper>
 
     return Stack(
       children: [
-        // ── Animated background ──────────────────────────────────────────
         AnimatedBuilder(
           animation: _glowAnim,
           builder: (_, __) => CustomPaint(

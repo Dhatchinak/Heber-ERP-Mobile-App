@@ -274,13 +274,13 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                       onPressed: () => Scaffold.of(ctx).openDrawer(),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: c.cyan.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                    child: Icon(Icons.show_chart_rounded, color: c.cyan, size: 18),
-                  ),
-                  const SizedBox(width: 12),
+                  // const SizedBox(width: 4),
+                  // Container(
+                  //   padding: const EdgeInsets.all(8),
+                  //   decoration: BoxDecoration(color: c.cyan.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                  //   child: Icon(Icons.show_chart_rounded, color: c.cyan, size: 18),
+                  // ),
+                  const SizedBox(width: 2),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,7 +322,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   }
 
   // ─── BUILD ───────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final c = Provider.of<ThemeProvider>(context);
@@ -361,7 +360,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   }
 
   // ─── HERO BANNER ─────────────────────────────────────────────────────────
-
   Widget _buildHeroBanner(ThemeProvider c) {
     return Container(
       decoration: BoxDecoration(
