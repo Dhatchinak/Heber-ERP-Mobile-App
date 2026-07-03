@@ -596,7 +596,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
   Widget _buildSummaryTab(ThemeProvider c) {
     final filtered = _filteredList;
-    return Column(
+    return Column( 
       children: [
         _buildSearchBar(c),
         const SizedBox(height: 12),
