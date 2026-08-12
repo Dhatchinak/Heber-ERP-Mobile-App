@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:bhc_erp/Staff/common/Alt_Attendance.dart';
 import 'package:bhc_erp/Staff/common/MentoringFormActivity%20.dart';
 import 'package:bhc_erp/Staff/common/StaffBioAttendance.dart';
 import 'package:bhc_erp/Staff/common/TimeTable.dart';
@@ -479,6 +480,17 @@ class _DrawerNav extends StatelessWidget {
                     baseApiUrl: _kBaseApiUrl,
                     refererUrl: _kRefererUrl,
                   ),
+                ),
+              ),
+              _NavItem(
+                icon: Icons.event_available_rounded,
+                label: 'Alternative Attendance',
+                isSelected: _isActive('/alt-attendance'),
+                theme: theme,
+                onTap: () => _navigateToRoute(
+                  context,
+                  '/alt-attendance',
+                  page: AlternativeAttendanceScreen(staffId: staffId),
                 ),
               ),
               _NavItem(
