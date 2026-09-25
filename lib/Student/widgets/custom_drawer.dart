@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:bhc_erp/Student/screens/academic_calendar.dart';
+import 'package:bhc_erp/Student/screens/fees_page.dart';
 import 'package:bhc_erp/login/screens/unified_login_screen.dart';
 import 'package:bhc_erp/Student/screens/EndSemExamResult.dart';
 import 'package:bhc_erp/Student/screens/attendance_screen.dart';
@@ -43,6 +44,13 @@ class CustomDrawer extends StatefulWidget {
 }
 
 class _CustomDrawerState extends State<CustomDrawer> {
+  // ── Static cache: shared across all drawer instances in the app session ──
+  static Map<String, dynamic>? _cachedDrawerData;
+  static String? _cachedPhotoUrl;
+  static bool _photoCacheFetched = false;
+  static String? _cachedRollNo;
+  static String? _cachedStudentName;
+
   late Future<Map<String, dynamic>> _drawerDataFuture;
   String _rollNo = '';
   String _studentName = '';
@@ -55,11 +63,35 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _rollNo = widget.rollNo.trim();
     _studentName = widget.studentName;
 
+    // Use cached name/rollNo if available (for screens that pass empty/default)
+    if (_cachedRollNo != null && _cachedRollNo!.isNotEmpty) {
+      if (_rollNo.isEmpty) _rollNo = _cachedRollNo!;
+    }
+    if (_cachedStudentName != null && _cachedStudentName!.isNotEmpty) {
+      if (_studentName.isEmpty || _studentName == 'Student') {
+        _studentName = _cachedStudentName!;
+      }
+    }
+
     if (widget.fetchDrawerData != null) {
-      _drawerDataFuture = widget.fetchDrawerData!();
+      // Dashboard provides its own future — use it and update cache
+      _drawerDataFuture = widget.fetchDrawerData!().then((data) {
+        _cachedDrawerData = data;
+        return data;
+      });
+    } else if (_cachedDrawerData != null) {
+      // Already fetched before — reuse instantly, no loading
+      _drawerDataFuture = Future.value(_cachedDrawerData!);
     } else {
       _drawerDataFuture = Future.value(_defaultDrawerData());
     }
+
+    // Photo: if already cached, apply immediately without loading spinner
+    if (_photoCacheFetched) {
+      _photoUrl = _cachedPhotoUrl;
+      _photoLoading = false;
+    }
+
     _initData();
   }
 
@@ -71,12 +103,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
     if (mounted) {
       setState(() {
         if (_rollNo.isEmpty) _rollNo = savedRollNo;
-        if (_studentName.isEmpty) _studentName = savedName;
+        if (_studentName.isEmpty || _studentName == 'Student') {
+          _studentName = savedName.isNotEmpty ? savedName : _studentName;
+        }
       });
     }
 
-    if (widget.fetchDrawerData == null && mounted) {
-      final future = _fetchFallbackDrawerData();
+    // Update static name/rollNo cache
+    if (_rollNo.isNotEmpty) _cachedRollNo = _rollNo;
+    if (_studentName.isNotEmpty && _studentName != 'Student') {
+      _cachedStudentName = _studentName;
+    }
+
+    // Only fetch drawer data if not cached and no external provider
+    if (widget.fetchDrawerData == null &&
+        _cachedDrawerData == null &&
+        mounted) {
+      final future = _fetchFallbackDrawerData().then((data) {
+        _cachedDrawerData = data;
+        return data;
+      });
       if (mounted) {
         setState(() {
           _drawerDataFuture = future;
@@ -84,7 +130,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
       }
     }
 
-    await _loadPhoto();
+    // Only load photo if not already cached
+    if (!_photoCacheFetched) {
+      await _loadPhoto();
+    }
   }
 
   Future<void> _loadPhoto() async {
@@ -94,11 +143,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
       if (widget.getPhotoFuture != null) {
         final url = await widget.getPhotoFuture!()
             .timeout(const Duration(seconds: 6), onTimeout: () => null);
-        if (mounted)
+        _cachedPhotoUrl = url;
+        _photoCacheFetched = true;
+        if (mounted) {
           setState(() {
             _photoUrl = url;
             _photoLoading = false;
           });
+        }
         return;
       }
 
@@ -107,6 +159,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           : (await SharedPreferences.getInstance()).getString('rollNo') ?? '';
 
       if (effectiveRollNo.isEmpty) {
+        _photoCacheFetched = true;
         if (mounted) setState(() => _photoLoading = false);
         return;
       }
@@ -121,12 +174,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
         }
       }
 
-      if (mounted)
+      _cachedPhotoUrl = url;
+      _photoCacheFetched = true;
+      if (mounted) {
         setState(() {
           _photoUrl = url;
           _photoLoading = false;
         });
+      }
     } catch (_) {
+      _photoCacheFetched = true;
       if (mounted) setState(() => _photoLoading = false);
     }
   }
@@ -144,9 +201,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         _fetchStudentProfile(rollNo),
       ]).timeout(const Duration(seconds: 10), onTimeout: () => [{}, {}, {}]);
 
-      final calData = results[0] as Map<String, dynamic>;
-      final attData = results[1] as Map<String, dynamic>;
-      final profile = results[2] as Map<String, dynamic>;
+      final calData = results[0];
+      final attData = results[1];
+      final profile = results[2];
 
       final semInfo = _calcSemInfo(calData);
       final att = _calcAttendancePct(attData);
@@ -284,56 +341,45 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
   }
 
-  // ─── PHOTO WIDGET ─────────────────────────────────────────────────────────
+  // ─── PHOTO WIDGET ────────────────────────────────────────────────────────
   Widget _buildPhotoWidget(ThemeProvider c) {
     return Container(
       width: 64,
       height: 64,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: c.cyan.withOpacity(0.6), width: 2),
-        boxShadow: [
-          BoxShadow(color: c.cyan.withOpacity(0.25), blurRadius: 14),
-        ],
+        border: Border.all(color: c.cyan, width: 2.5),
+        boxShadow: [BoxShadow(color: c.cyan.withOpacity(0.3), blurRadius: 12)],
       ),
-      child: ClipOval(
-        child: _photoLoading
-            ? Container(
-                color: c.elevated,
-                child: Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: c.cyan,
-                    ),
-                  ),
-                ),
-              )
-            : _photoUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: _photoUrl!,
-                    fit: BoxFit.cover,
-                    width: 64,
-                    height: 64,
-                    httpHeaders: PhotoService.headers,
-                    placeholder: (_, __) => Container(
-                      color: c.elevated,
-                      child: Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: c.cyan,
-                          ),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => _buildAvatarFallback(c),
-                  )
-                : _buildAvatarFallback(c),
+      child: ClipOval(child: _buildDisplayImage(c)),
+    );
+  }
+
+  Widget _buildDisplayImage(ThemeProvider c) {
+    if (_photoLoading) return _buildLoadingPlaceholder(c);
+    if (_photoUrl != null) {
+      return CachedNetworkImage(
+        imageUrl: _photoUrl!,
+        fit: BoxFit.cover,
+        width: 64,
+        height: 64,
+        httpHeaders: PhotoService.headers,
+        placeholder: (_, __) => _buildLoadingPlaceholder(c),
+        errorWidget: (_, __, ___) => _buildAvatarFallback(c),
+      );
+    }
+    return _buildAvatarFallback(c);
+  }
+
+  Widget _buildLoadingPlaceholder(ThemeProvider c) {
+    return Container(
+      color: c.elevated,
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: c.cyan),
+        ),
       ),
     );
   }
@@ -481,6 +527,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     if (shouldLogout == true) {
       if (!mounted) return;
+      // Clear static cache so next login loads fresh data
+      _cachedDrawerData = null;
+      _cachedPhotoUrl = null;
+      _photoCacheFetched = false;
+      _cachedRollNo = null;
+      _cachedStudentName = null;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -544,6 +596,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final isExamResults = widget.currentRoute == '/exam-results';
     final isSeating = widget.currentRoute == '/seating';
     final isCalendar = widget.currentRoute == '/calendar';
+    final isFees = widget.currentRoute == '/fees';
 
     final displayRollNo = _rollNo.isNotEmpty ? _rollNo : widget.rollNo;
     final displayName =
@@ -579,13 +632,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       _buildPhotoWidget(c),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               displayName,
@@ -598,46 +652,70 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: c.cyan.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: c.cyan.withOpacity(0.3)),
-                              ),
-                              child: Text(
-                                displayRollNo.isNotEmpty
-                                    ? displayRollNo
-                                    : 'Loading...',
-                                style: TextStyle(
-                                  color: c.cyan,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             Row(
                               children: [
                                 Container(
-                                  width: 7,
-                                  height: 7,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: c.cyan.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                        color: c.cyan.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    displayRollNo.isNotEmpty
+                                        ? displayRollNo
+                                        : 'Loading...',
+                                    style: TextStyle(
+                                      color: c.cyan,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  width: 6,
+                                  height: 6,
                                   decoration: BoxDecoration(
                                       color: c.green, shape: BoxShape.circle),
                                 ),
-                                const SizedBox(width: 5),
+                                const SizedBox(width: 4),
                                 Text(
-                                  "Active Student",
+                                  "Active",
                                   style: TextStyle(
                                       color: c.textMid,
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w500),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: c.cyan.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border:
+                                    Border.all(color: c.cyan.withOpacity(0.35)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.photo_camera_rounded,
+                                      size: 10, color: c.cyan),
+                                  const SizedBox(width: 4),
+                                  Text('Photo',
+                                      style: TextStyle(
+                                          color: c.cyan,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -716,11 +794,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   c,
                                 ),
                                 _vDivider(c),
-                                _drawerStat(
-                                    courses == 0 ? "…" : "$courses",
-                                    "COURSES",
-                                    c.cyan,
-                                    c),
+                                _drawerStat(courses == 0 ? "…" : "$courses",
+                                    "COURSES", c.cyan, c),
                                 _vDivider(c),
                                 _drawerStat(
                                     "${attendancePct.toStringAsFixed(0)}%",
@@ -800,6 +875,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       _navItem(Icons.event_rounded, "Academic Calendar",
                           c.amber, isCalendar, c,
                           onTap: () => _navigateTo(AcademicCalendarScreen(
+                              rollNo: displayRollNo,
+                              studentName: displayName))),
+                    ]),
+                    _navGroup("FINANCE", [
+                      _navItem(Icons.receipt_long_rounded, "Fee History",
+                          c.green, isFees, c,
+                          onTap: () => _navigateTo(FeesHistoryScreen(
                               rollNo: displayRollNo,
                               studentName: displayName))),
                     ]),
@@ -933,8 +1015,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
                   tileColor: c.cyan.withOpacity(0.08),
@@ -981,8 +1062,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   minLeadingWidth: 0,
                   horizontalTitleGap: 12,
                   tileColor: c.pink.withOpacity(0.08),
@@ -997,8 +1077,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       color: c.pink.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child:
-                        Icon(Icons.logout_rounded, color: c.pink, size: 17),
+                    child: Icon(Icons.logout_rounded, color: c.pink, size: 17),
                   ),
                   title: Text(
                     "Logout",
@@ -1109,9 +1188,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ((endDate.difference(startDate).inDays) / 7).ceil().clamp(1, 26);
     final weeksCompleted = now.isBefore(startDate)
         ? 0
-        : ((now.difference(startDate).inDays) / 7)
-            .floor()
-            .clamp(0, totalWeeks);
+        : ((now.difference(startDate).inDays) / 7).floor().clamp(0, totalWeeks);
 
     return {
       'semester': isOdd ? 1 : 2,
@@ -1145,8 +1222,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1)
-                  totalAbsent += 0.5;
+                else if (absent >= 1) totalAbsent += 0.5;
               });
             }
           }
@@ -1169,7 +1245,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
               if (dayObj is! Map<String, dynamic>) continue;
               dayObj.forEach((_, dayData) {
                 if (dayData is! Map) return;
-                final hours = (dayData as Map)['hours'] as List? ?? [];
+                final hours = (dayData)['hours'] as List? ?? [];
                 if (hours.isEmpty) return;
                 totalDays++;
                 final present = hours
@@ -1179,8 +1255,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 final absent = hours.length - present;
                 if (absent >= 3)
                   totalAbsent += 1.0;
-                else if (absent >= 1)
-                  totalAbsent += 0.5;
+                else if (absent >= 1) totalAbsent += 0.5;
               });
             }
           }

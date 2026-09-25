@@ -104,7 +104,7 @@ class ApiService {
       return responseData.map((data) => Subject.fromJson(data)).toList();
     } else if (responseData['data']?['subjects'] is List) {
       final subjects = responseData['data']['subjects'] as List;
-      return subjects.map((data) => Subject.fromJson(data)).toList();
+        subjects.map((data) => Subject.fromJson(data)).toList();
     }
     return [];
   }
@@ -224,7 +224,6 @@ Future<void> _loadStudentDataAndFetchSubjects() async {
           section = currentAcademic?["section"] ?? "A";
           String? batch = data["data"]["batch"] ?? "2025-2027";
           year = getAcademicYear(batch!);
-          // Also get student name from API if needed
           studentName = data["data"]["name"] ?? studentName;
         }
       }

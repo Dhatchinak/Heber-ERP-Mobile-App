@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:bhc_erp/Staff/common/Alt_Attendance.dart';
 import 'package:bhc_erp/Staff/common/MentoringFormActivity%20.dart';
 import 'package:bhc_erp/Staff/common/StaffBioAttendance.dart';
 import 'package:bhc_erp/Staff/common/TimeTable.dart';
@@ -482,6 +483,17 @@ class _DrawerNav extends StatelessWidget {
                 ),
               ),
               _NavItem(
+                icon: Icons.event_available_rounded,
+                label: 'Alternative Attendance',
+                isSelected: _isActive('/alt-attendance'),
+                theme: theme,
+                onTap: () => _navigateToRoute(
+                  context,
+                  '/alt-attendance',
+                  page: AlternativeAttendanceScreen(staffId: staffId),
+                ),
+              ),
+              _NavItem(
                 icon: Icons.schedule_rounded,
                 label: 'Timetable',
                 isSelected: _isActive('/timetable'),
@@ -557,19 +569,25 @@ class _DrawerNav extends StatelessWidget {
               ),
             ],
           ),
-          _NavItem(
-            icon: Icons.event_rounded,
-            label: 'Academic Calendar',
-            isSelected: _isActive('/academic-calendar'),
+          _NavSection(
+            title: 'CAMPUS',
             theme: theme,
-            onTap: () => _navigateToRoute(
-              context,
-              '/academic-calendar',
-              page: AcademicCalendarScreen(
-                rollNo: '',
-                studentName: '',
+            items: [
+              _NavItem(
+                icon: Icons.event_rounded,
+                label: 'Academic Calendar',
+                isSelected: _isActive('/academic-calendar'),
+                theme: theme,
+                onTap: () => _navigateToRoute(
+                  context,
+                  '/academic-calendar',
+                  page: AcademicCalendarScreen(
+                    rollNo: '',
+                    studentName: '',
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
           if (isHod)
             _NavSection(

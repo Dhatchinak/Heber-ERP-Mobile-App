@@ -1732,7 +1732,7 @@ _buildNavItem(
                           fontWeight: FontWeight.w700,
                           color: Colors.grey[800],
                         ),
-                      ),
+                       ),
                       const SizedBox(height: 8),
                       Text(
                         "Are you sure you want to logout?",

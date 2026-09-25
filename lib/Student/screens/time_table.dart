@@ -19,6 +19,7 @@ class TimetableScreen extends StatefulWidget {
 
 class _TimetableScreenState extends State<TimetableScreen>
     with TickerProviderStateMixin {
+
   // ── State ──────────────────────────────────────────────────────────────────
   Map<String, dynamic>? _student;
   Map<String, dynamic>? _timetable;

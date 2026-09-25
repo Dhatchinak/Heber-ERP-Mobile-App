@@ -18,23 +18,32 @@ void main() async {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
+
   final authProvider = AuthProvider();
   await authProvider.init();
-  runApp(MyApp(authProvider: authProvider));
+
+  final themeProvider = AppThemeProvider();
+  await themeProvider.init();
+
+  runApp(MyApp(authProvider: authProvider, themeProvider: themeProvider));
 }
 
 class MyApp extends StatelessWidget {
   final AuthProvider authProvider;
-  const MyApp({super.key, required this.authProvider});
+  final AppThemeProvider themeProvider;
+
+  const MyApp(
+      {super.key, required this.authProvider, required this.themeProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: authProvider),
-        ChangeNotifierProvider(create: (_) => AppThemeProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => StaffThemeProvider()),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => authProvider),
+        ChangeNotifierProvider<AppThemeProvider>(create: (_) => themeProvider),
+        ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider<StaffThemeProvider>(
+            create: (_) => StaffThemeProvider()),
       ],
       child: const _AppRoot(),
     );
@@ -47,7 +56,7 @@ class _AppRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<AppThemeProvider>();
-    final auth  = context.watch<AuthProvider>();
+    final auth = context.watch<AuthProvider>();
 
     return MaterialApp(
       title: 'BHC ERP',
@@ -56,7 +65,7 @@ class _AppRoot extends StatelessWidget {
       builder: (context, child) => child!,
       home: SplashScreen(nextScreen: _resolveHome(context, auth, theme)),
       routes: {
-        '/login':           (_) => const UnifiedLoginScreen(),
+        '/login': (_) => const UnifiedLoginScreen(),
         '/staff-dashboard': (_) => const StaffDashboard(),
       },
       onGenerateRoute: (settings) {
@@ -69,9 +78,9 @@ class _AppRoot extends StatelessWidget {
     );
   }
 
-  Widget _resolveHome(BuildContext context, AuthProvider auth, AppThemeProvider theme) {
+  Widget _resolveHome(
+      BuildContext context, AuthProvider auth, AppThemeProvider theme) {
     if (auth.isLoading) {
-      // Uses theme colors — no hardcoded hex
       return Scaffold(
         backgroundColor: theme.bg,
         body: Center(
@@ -82,7 +91,7 @@ class _AppRoot extends StatelessWidget {
     if (!auth.isAuthenticated) return const UnifiedLoginScreen();
     if (auth.userType == UserType.student) {
       return MainPage(
-        rollNo:      auth.studentRollNo ?? '',
+        rollNo: auth.studentRollNo ?? '',
         studentName: auth.studentName ?? 'Student',
       );
     }
@@ -100,8 +109,9 @@ PageRouteBuilder _fadeSlideRoute(Widget page) {
         opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
         child: SlideTransition(
           position: Tween<Offset>(
-                  begin: const Offset(0, 0.03), end: Offset.zero)
-              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+            begin: const Offset(0, 0.03),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
           child: child,
         ),
       );
