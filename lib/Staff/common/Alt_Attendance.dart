@@ -16,7 +16,7 @@ import '../widgets/app_drawer.dart';
 import 'package:bhc_erp/core/auth/auth_provider.dart';
 
 const String _kBaseApiUrl = 'https://apierp.bhc.edu.in';
-const String _kRefererUrl = 'http://10.240.151.162';
+const String _kRefererUrl = 'http://117.232.64.75';
 
 Map<String, String> get _headers => {
       'Referer': _kRefererUrl,
@@ -155,7 +155,7 @@ class _AlternativeAttendanceScreenState
     });
     try {
       final res = await http
-          .get(Uri.parse('$_kBaseApiUrl/api/admin/departments'),
+          .get(Uri.parse('$_kBaseApiUrl/admin/departments'),
               headers: _headers)
           .timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
@@ -818,7 +818,7 @@ class _AlternativeMarkAttendanceScreenState
       '${currentYear - year}-${currentYear - year + span + 1}',
     };
     for (final batch in candidates) {
-      final url = '$_kBaseApiUrl/api/students/attendance/class/'
+      final url = '$_kBaseApiUrl/students/attendance/class/'
           '${widget.selectedClass['program_id']}/$batch/'
           '${widget.selectedClass['section_name']}/$formattedDate';
       try {
@@ -850,7 +850,7 @@ class _AlternativeMarkAttendanceScreenState
       _resolvedBatch = batch;
       final formattedDate =
           DateFormat('yyyy-MM-dd').format(widget.selectedDate);
-      final url = '$_kBaseApiUrl/api/students/attendance/class/'
+      final url = '$_kBaseApiUrl/students/attendance/class/'
           '${widget.selectedClass['program_id']}/$batch/'
           '${widget.selectedClass['section_name']}/$formattedDate';
       final res = await http
@@ -1050,7 +1050,7 @@ class _AlternativeMarkAttendanceScreenState
 
       final res = await http
           .post(
-            Uri.parse('$_kBaseApiUrl/api/students/attendance/mark-attendance'),
+            Uri.parse('$_kBaseApiUrl/students/attendance/mark-attendance'),
             headers: _headers,
             body: json.encode(body),
           )

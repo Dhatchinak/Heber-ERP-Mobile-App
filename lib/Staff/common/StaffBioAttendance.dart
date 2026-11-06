@@ -118,7 +118,7 @@ class _StaffBioAttendanceScreenState extends State<StaffBioAttendanceScreen>
       _staffId = auth.userData?['staff_id']?.toString();
       if (_staffId == null) throw Exception('Staff ID not available');
       final res = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/staff/$_staffId'),
+        Uri.parse('https://apierp.bhc.edu.in/staff/$_staffId'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'
@@ -147,7 +147,7 @@ class _StaffBioAttendanceScreenState extends State<StaffBioAttendanceScreen>
       final f = DateFormat('yyyy-MM-dd').format(_from);
       final t = DateFormat('yyyy-MM-dd').format(_to);
       final url =
-          'https://apierp.bhc.edu.in/api/staff/attendance/$_bioId?fromDate=$f&toDate=$t';
+          'https://apierp.bhc.edu.in/staff/attendance/$_bioId?fromDate=$f&toDate=$t';
       final res = await http.get(
         Uri.parse(url),
         headers: {

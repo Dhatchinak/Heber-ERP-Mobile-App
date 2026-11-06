@@ -21,7 +21,7 @@ class RoomBookingScreen extends StatefulWidget {
 class _RoomBookingScreenState extends State<RoomBookingScreen>
     with TickerProviderStateMixin {
   // ── API ──────────────────────────────────────────────────
-  final String _baseApiUrl = "https://apierp.bhc.edu.in/api";
+  final String _baseApiUrl = "https://apierp.bhc.edu.in";
   final String _refererUrl = "http://117.232.64.75";
 
   // ── STATE ────────────────────────────────────────────────
@@ -186,7 +186,7 @@ Widget _animated(int i, Widget child) {
     setState(() => _loadingRooms = true);
     try {
       final res = await http.get(
-        Uri.parse("$_baseApiUrl/office/hall/rooms/$hallId"),
+        Uri.parse("$_baseApiUrl/office/hall/data/$hallId"),
         headers: {'Referer': _refererUrl, 'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 10));
 

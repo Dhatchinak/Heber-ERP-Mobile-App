@@ -205,7 +205,7 @@ class _EnhancedPublicationsScreenState extends State<EnhancedPublicationsScreen>
     final staffId = context.read<AuthProvider>().userData?['staff_id'];
     if (staffId == null) return;
     final res = await http.get(
-      Uri.parse('https://apierp.bhc.edu.in/api/staff/publications/$staffId'),
+      Uri.parse('https://apierp.bhc.edu.in/staff/publications/$staffId'),
       headers: {
         'Referer': 'http://117.232.64.75',
         'Accept': 'application/json'
@@ -221,7 +221,7 @@ class _EnhancedPublicationsScreenState extends State<EnhancedPublicationsScreen>
 
   Future<void> _loadAllStaff() async {
     final res = await http.get(
-      Uri.parse('http://apierp.bhc.edu.in/api/staff/'),
+      Uri.parse('https://apierp.bhc.edu.in/staff/'),
       headers: {
         'Referer': 'http://117.232.64.75',
         'Accept': 'application/json'
@@ -316,7 +316,7 @@ class _EnhancedPublicationsScreenState extends State<EnhancedPublicationsScreen>
       final res = await http
           .post(
             Uri.parse(
-                'https://apierp.bhc.edu.in/api/staff/publications/$staffId/${type.apiKey}'),
+                'https://apierp.bhc.edu.in/staff/publications/$staffId/${type.apiKey}'),
             headers: {
               'Referer': 'http://117.232.64.75',
               'Content-Type': 'application/json',
@@ -354,7 +354,7 @@ class _EnhancedPublicationsScreenState extends State<EnhancedPublicationsScreen>
       final staffId = context.read<AuthProvider>().userData?['staff_id'];
       final res = await http.delete(
         Uri.parse(
-            'https://apierp.bhc.edu.in/api/staff/publications/$staffId/${type.apiKey}/$id'),
+            'https://apierp.bhc.edu.in/staff/publications/$staffId/${type.apiKey}/$id'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'

@@ -135,7 +135,7 @@ class _PaperPublishScreenState extends State<PaperPublishScreen>
   Future<void> _loadStaff() async {
     try {
       final resp = await http.get(
-        Uri.parse('http://117.232.64.75/api/staff/'),
+        Uri.parse('https://apierp.bhc.edu.in/staff/'),
         headers: {'Referer': 'http://117.232.64.75', 'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
@@ -234,7 +234,7 @@ class _PaperPublishScreenState extends State<PaperPublishScreen>
         data['co_authors'] = _coAuthors;
       }
       final resp = await http.post(
-        Uri.parse('http://117.232.64.75/api/staff/publications/$staffId/${type.apiKey}'),
+        Uri.parse('https://apierp.bhc.edu.in/staff/publications/$staffId/${type.apiKey}'),
         headers: {'Referer': 'http://117.232.64.75', 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: json.encode(data),
       ).timeout(const Duration(seconds: 10));

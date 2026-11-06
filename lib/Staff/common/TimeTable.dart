@@ -17,7 +17,7 @@ class StaffTimetableScreen extends StatefulWidget {
 
 class _StaffTimetableScreenState extends State<StaffTimetableScreen> {
   // API Constants
-  final String _baseApiUrl = "https://apierp.bhc.edu.in/api";
+  final String _baseApiUrl = "https://apierp.bhc.edu.in";
   final String _refererUrl = "http://117.232.64.75";
 
   // State

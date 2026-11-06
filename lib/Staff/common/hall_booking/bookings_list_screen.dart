@@ -137,7 +137,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
       }
 
       final uri = Uri.parse(
-        'https://apierp.bhc.edu.in/api/office/hall/booking/your_booking/$_staffId'
+        'https://apierp.bhc.edu.in/office/hall/booking/your_booking/$_staffId'
       );
       final res = await http.get(uri, headers: {
         'Referer': 'http://117.232.64.75',

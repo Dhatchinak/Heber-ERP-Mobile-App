@@ -171,7 +171,9 @@ class _StaffLoginTabState extends State<_StaffLoginTab> {
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _otpFocus = List.generate(6, (_) => FocusNode());
 
-  static const List<String> _depts = ['STE', 'ANT', 'ATE', 'STC'];
+  static const List<String> _depts = [
+    'ATE', 'ANT', 'STE', 'STC', 'SNC', 'SNT', 'VFT', 'RES', 'PTS', 'CNT', 'AUD', 'MES',
+  ];
   String _dept = 'STE';
   String? _maskedEmail;
 

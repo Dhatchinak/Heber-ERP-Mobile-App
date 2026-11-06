@@ -74,7 +74,7 @@ class _SeatingArrangementPageState extends State<SeatingArrangementPage>
       final response = await http
           .get(
             Uri.parse(
-              'https://apierp.bhc.edu.in/api/students/exams/seating/$rollNo',
+              'https://apierp.bhc.edu.in/students/exams/seating/$rollNo',
             ),
             headers: headers,
           )

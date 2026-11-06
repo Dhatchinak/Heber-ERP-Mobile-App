@@ -21,7 +21,7 @@ class HallBookingScreen extends StatefulWidget {
 class _HallBookingScreenState extends State<HallBookingScreen>
     with TickerProviderStateMixin {
   // ── API ──────────────────────────────────────────────────────
-  final String _base = "https://apierp.bhc.edu.in/api";
+  final String _base = "https://apierp.bhc.edu.in";
   final String _ref = "http://117.232.64.75";
 
   // ── STATE ────────────────────────────────────────────────────

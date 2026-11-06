@@ -116,7 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     try {
       final response = await http.get(
-        Uri.parse("$baseApiUrl/api/students/${widget.rollNo}"),
+        Uri.parse("$baseApiUrl/students/${widget.rollNo}"),
         headers: {
           'Referer': refererUrl,
           'Accept': 'application/json',

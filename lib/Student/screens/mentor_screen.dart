@@ -99,7 +99,7 @@ class _MentorScreenState extends State<MentorScreen>
     setState(() { _isLoading = true; _hasError = false; });
     try {
       final res = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/staff/mentorship/get_student_session/${widget.rollNo}'),
+        Uri.parse('https://apierp.bhc.edu.in/staff/mentorship/get_student_session/${widget.rollNo}'),
         headers: {'Referer': 'http://117.232.64.75', 'Content-Type': 'application/json', 'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {

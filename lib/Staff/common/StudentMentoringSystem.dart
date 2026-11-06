@@ -190,9 +190,9 @@ class _MentoringSessionsPageState extends State<MentoringSessionsPage>
 
       final response = await http.get(
         Uri.parse(
-            'http://117.232.64.75/api/staff/mentorship/get_department_session/$departmentCode'),
+            'https://apierp.bhc.edu.in/staff/mentorship/get_department_session/$departmentCode'),
         headers: {
-          'Referer': 'http://10.240.151.162',
+          'Referer': 'http://117.232.64.75',
           'Accept': 'application/json',
         },
       ).timeout(const Duration(seconds: 30));
@@ -2093,7 +2093,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Future<void> _loadPhoto() async {
-    final url = 'http://117.232.64.75/photos/uploads/${widget.studentId}';
+    final url = 'https://apierp.bhc.edu.in/photo/student/${widget.studentId}';
     try {
       final response = await http.head(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -2116,9 +2116,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
       final response = await http.get(
         Uri.parse(
-            'http://117.232.64.75/api/staff/mentorship/get_department_session/$departmentCode'),
+            'https://apierp.bhc.edu.in/staff/mentorship/get_department_session/$departmentCode'),
         headers: {
-          'Referer': 'http://10.240.151.162',
+          'Referer': 'http://117.232.64.75',
           'Accept': 'application/json',
         },
       ).timeout(const Duration(seconds: 30));
@@ -2153,7 +2153,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Future<Map<String, dynamic>> _fetchStudentData() async {
     try {
       final response = await http.get(
-        Uri.parse('http://117.232.64.75/api/students/${widget.studentId}'),
+        Uri.parse('https://apierp.bhc.edu.in/students/${widget.studentId}'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json',

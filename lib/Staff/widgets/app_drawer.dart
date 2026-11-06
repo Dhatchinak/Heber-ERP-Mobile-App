@@ -20,7 +20,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:bhc_erp/core/auth/auth_provider.dart';
 
-const String _kBaseApiUrl = 'https://apierp.bhc.edu.in/api';
+const String _kBaseApiUrl = 'https://apierp.bhc.edu.in';
 const String _kRefererUrl = 'http://117.232.64.75';
 
 class AppDrawer extends StatelessWidget {

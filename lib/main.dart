@@ -10,6 +10,7 @@ import 'core/auth/auth_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'login/screens/unified_login_screen.dart';
 import 'Staff/screens/staff_dashboard.dart';
+import 'Staff/screens/admin_dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,6 +95,9 @@ class _AppRoot extends StatelessWidget {
         rollNo: auth.studentRollNo ?? '',
         studentName: auth.studentName ?? 'Student',
       );
+    }
+    if (auth.userType == UserType.admin) {
+      return const AdminDashboard();
     }
     return const StaffDashboard();
   }

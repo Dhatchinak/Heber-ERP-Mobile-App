@@ -83,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       final response = await http.get(
-        Uri.parse("https://apierp.bhc.edu.in/api/students/$rollNo"),
+        Uri.parse("https://apierp.bhc.edu.in/students/$rollNo"),
         headers: {"Referer": "http://117.232.64.75"},
       );
       if (response.statusCode == 200) {

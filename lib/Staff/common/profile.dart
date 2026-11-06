@@ -29,7 +29,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   String? _staffId;
 
-  final String _baseApiUrl = "https://apierp.bhc.edu.in/api/staff/";
+  final String _baseApiUrl = "https://apierp.bhc.edu.in/staff/";
   final String _workingPhotoIp = "apierp.bhc.edu.in";
   final String _refererUrl = "http://117.232.64.75";
 

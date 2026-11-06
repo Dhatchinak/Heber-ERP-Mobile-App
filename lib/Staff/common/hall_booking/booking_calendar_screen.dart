@@ -21,7 +21,7 @@ class BookingCalendarScreen extends StatefulWidget {
 class _BookingCalendarScreenState extends State<BookingCalendarScreen>
     with TickerProviderStateMixin {
   // ── API ──────────────────────────────────────────────────
-  final String _base = "https://apierp.bhc.edu.in/api";
+  final String _base = "https://apierp.bhc.edu.in";
   final String _ref = "http://117.232.64.75";
 
   // ── STATE ────────────────────────────────────────────────

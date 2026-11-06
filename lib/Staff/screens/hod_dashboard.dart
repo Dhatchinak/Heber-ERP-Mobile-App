@@ -1000,8 +1000,8 @@ _buildNavItem(
       MaterialPageRoute(
         builder: (context) => ProfessionalClassAttendanceScreen(
           staffId: staffId,
-          baseApiUrl: "http://117.232.64.75/api",
-          refererUrl: "http://10.240.151.162",
+          baseApiUrl: "https://apierp.bhc.edu.in",
+          refererUrl: "http://117.232.64.75",
         ),
       ),
     );

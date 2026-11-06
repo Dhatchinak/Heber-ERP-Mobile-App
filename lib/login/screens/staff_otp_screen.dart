@@ -37,7 +37,35 @@ class _OTPLoginScreenState extends State<OTPLoginScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  final List<String> _departments = ['STE', 'ANT', 'ATE', 'STC'];
+  // Full staff category list — matches staff-heber/src/constants/departmentOptions.ts
+  final List<String> _departments = [
+    'ATE', // Aided Teaching
+    'ANT', // Aided NON Teaching
+    'STE', // Self Finance Teaching
+    'STC', // Self Finance Teaching Technical
+    'SNC', // Self Finance NON Teaching Technical
+    'SNT', // Self Finance NON Teaching
+    'VFT', // Visiting Faculty Teaching
+    'RES', // Research Scholar
+    'PTS', // Part Time Staff
+    'CNT', // Canteen Staff
+    'AUD', // Office Auditor Login
+    'MES', // Mess Establishment Staff
+  ];
+  static const Map<String, String> _departmentNames = {
+    'ATE': 'Aided Teaching',
+    'ANT': 'Aided NON Teaching',
+    'STE': 'Self Finance Teaching',
+    'STC': 'Self Finance Teaching Technical',
+    'SNC': 'Self Finance NON Teaching Technical',
+    'SNT': 'Self Finance NON Teaching',
+    'VFT': 'Visiting Faculty Teaching',
+    'RES': 'Research Scholar',
+    'PTS': 'Part Time Staff',
+    'CNT': 'Canteen Staff',
+    'AUD': 'Office Auditor Login',
+    'MES': 'Mess Establishment Staff',
+  };
   String _selectedDepartment = 'STE';
 
   // ── BUG 1 FIX: All headers now use ApiConstants — no raw IP anywhere ──────
@@ -413,7 +441,11 @@ class _OTPLoginScreenState extends State<OTPLoginScreen>
               borderRadius: BorderRadius.circular(14),
               onChanged: (v) => setState(() => _selectedDepartment = v!),
               items: _departments
-                  .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                  .map((v) => DropdownMenuItem(
+                        value: v,
+                        child: Text('$v — ${_departmentNames[v] ?? ''}',
+                            overflow: TextOverflow.ellipsis),
+                      ))
                   .toList(),
             ),
           ),

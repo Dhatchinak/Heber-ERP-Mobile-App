@@ -38,7 +38,7 @@ class _OTPLoginScreenState extends State<OTPLoginScreen>
   String _selectedDepartment = 'STE';
 
   static const List<String> _baseUrls = [
-    'https://apierp.bhc.edu.in/api',
+    'https://apierp.bhc.edu.in',
     'https://apierp.bhc.edu.in',
   ];
 
@@ -130,7 +130,7 @@ class _OTPLoginScreenState extends State<OTPLoginScreen>
  Future<void> _verifyStaffId(String staffId) async {
   // Try both patterns
   final endpoints = [
-    'https://apierp.bhc.edu.in/api/staff/$staffId',
+    'https://apierp.bhc.edu.in/staff/$staffId',
     'https://apierp.bhc.edu.in/staff/$staffId',
   ];
   
@@ -217,7 +217,7 @@ Future<void> _verifyOTP() async {
     final staffId = 'BHC-$_selectedDepartment-${_staffNumberController.text.padLeft(5, '0')}';
     
     // For verification, use the /api endpoint with JSON body
-    final url = 'https://apierp.bhc.edu.in/api/staff/login/otp';
+    final url = 'https://apierp.bhc.edu.in/staff/login/otp';
     
     final headers = {
       'Referer': 'http://117.232.64.75',  // Keep original for /api endpoint

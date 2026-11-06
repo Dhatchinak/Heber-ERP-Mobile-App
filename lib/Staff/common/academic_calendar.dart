@@ -237,8 +237,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen>
     };
 
     final candidates = [
-      '$_baseUrl/api/academic_calendar/$_academicYear',
-      '$_baseUrl/api/academic_calendar',
+      '$_baseUrl/academic_calendar/$_academicYear',
+      '$_baseUrl/academic_calendar',
       '$_baseUrl/academic_calendar/$_academicYear',
     ];
 

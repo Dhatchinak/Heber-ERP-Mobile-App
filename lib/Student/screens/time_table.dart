@@ -126,7 +126,7 @@ class _TimetableScreenState extends State<TimetableScreen>
     try {
       final res = await http
           .get(
-            Uri.parse('$_kApiBase/api/students/${widget.rollNo}'),
+            Uri.parse('$_kApiBase/students/${widget.rollNo}'),
             headers: {'Referer': _kReferer},
           )
           .timeout(const Duration(seconds: 15));
@@ -136,7 +136,7 @@ class _TimetableScreenState extends State<TimetableScreen>
         final d = j['data'];
         if (d != null) {
           _student = d;
-          _programId = d['current_academic']?['program_id'] ?? '';
+          _programId = d['current_academic']?['program_code'] ?? '';
           _programName = d['current_academic']?['program_name'] ?? '';
           _section = d['current_academic']?['section'] ?? '';
           _year = _parseYear(d['batch'] ?? '');
@@ -164,7 +164,7 @@ class _TimetableScreenState extends State<TimetableScreen>
       }
       final res = await http
           .get(
-            Uri.parse('$_kApiBase/api/admin/departments/code/$deptCode'),
+            Uri.parse('$_kApiBase/admin/departments/code/$deptCode'),
             headers: {'Accept': 'application/json', 'Referer': _kReferer},
           )
           .timeout(const Duration(seconds: 20));

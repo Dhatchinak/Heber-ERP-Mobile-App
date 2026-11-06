@@ -182,7 +182,7 @@ class _UnifiedMentoringDashboardState extends State<UnifiedMentoringDashboard>
     if (_departmentCode == null) return;
     final res = await http.get(
       Uri.parse(
-          'https://apierp.bhc.edu.in/api/staff/mentorship/get_department_session/$_departmentCode'),
+          'https://apierp.bhc.edu.in/staff/mentorship/get_department_session/$_departmentCode'),
       headers: {
         'Referer': 'http://117.232.64.75',
         'Accept': 'application/json'
@@ -226,7 +226,7 @@ class _UnifiedMentoringDashboardState extends State<UnifiedMentoringDashboard>
     if (_departmentCode == null || _currentStaffId == null) return;
     final res = await http.get(
       Uri.parse(
-          'https://apierp.bhc.edu.in/api/staff/mentorship/$_departmentCode'),
+          'https://apierp.bhc.edu.in/staff/mentorship/$_departmentCode'),
       headers: {
         'Referer': 'http://117.232.64.75',
         'Accept': 'application/json'
@@ -1932,7 +1932,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
       final res = await http
           .post(
             Uri.parse(
-                'https://apierp.bhc.edu.in/api/staff/mentorship/$dept/$staffId/${widget.studentId}/session'),
+                'https://apierp.bhc.edu.in/staff/mentorship/$dept/$staffId/${widget.studentId}/session'),
             headers: {
               'Referer': 'http://117.232.64.75',
               'Content-Type': 'application/json',
@@ -2253,7 +2253,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Future<void> _fetchStudent() async {
     try {
       final res = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/students/${widget.studentId}'),
+        Uri.parse('https://apierp.bhc.edu.in/students/${widget.studentId}'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'
@@ -2270,7 +2270,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Future<void> _fetchPhoto() async {
     try {
       final url =
-          'https://apierp.bhc.edu.in/photos/uploads/${widget.studentId}';
+          'https://apierp.bhc.edu.in/photo/student/${widget.studentId}';
       final res = await http.head(Uri.parse(url));
       if (res.statusCode == 200) setState(() => _photoUrl = url);
     } catch (_) {}
@@ -2284,7 +2284,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (dept == null || staffId == null) return;
       final res = await http.get(
         Uri.parse(
-            'https://apierp.bhc.edu.in/api/staff/mentorship/get_department_session/$dept'),
+            'https://apierp.bhc.edu.in/staff/mentorship/get_department_session/$dept'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'

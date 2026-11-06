@@ -16,7 +16,7 @@ import 'dart:convert';
 import 'package:bhc_erp/core/auth/auth_provider.dart';
 import 'package:bhc_erp/core/auth/user_type.dart';
 
-const String _kBaseApiUrl = 'https://apierp.bhc.edu.in/api';
+const String _kBaseApiUrl = 'https://apierp.bhc.edu.in';
 const String _kRefererUrl = 'http://117.232.64.75';
 
 class StaffDashboard extends StatefulWidget {
@@ -454,7 +454,7 @@ Future<Map<String, dynamic>?> _fetchStaffProfileCached() async {
     if (staffId == null || deptCode == null) return 0;
     try {
       final res = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/staff/mentorship/$deptCode'),
+        Uri.parse('https://apierp.bhc.edu.in/staff/mentorship/$deptCode'),
         headers: {'Referer': _kRefererUrl, 'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {

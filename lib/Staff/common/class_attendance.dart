@@ -176,7 +176,7 @@ class _ProfessionalClassAttendanceScreenState
       _errorMessage = '';
     });
     try {
-      final res = await _httpGet('$_kBaseApiUrl/api/staff/$_staffId');
+      final res = await _httpGet('$_kBaseApiUrl/staff/$_staffId');
       if (!mounted) return;
       if (res.statusCode == 200) {
         final data = json.decode(res.body);

@@ -77,7 +77,7 @@ class _ExamResultsPageState extends State<ExamResultsPage>
       final response = await http
           .get(
             Uri.parse(
-              'https://apierp.bhc.edu.in/api/students/exams/ese/$rollNo',
+              'https://apierp.bhc.edu.in/students/exams/ese/$rollNo',
             ),
             headers: headers,
           )

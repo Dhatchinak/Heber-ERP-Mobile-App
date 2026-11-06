@@ -192,7 +192,7 @@ LeaveTypeConfig _cfg(String v) =>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class LeaveService {
-  static const _base = 'https://apierp.bhc.edu.in/api';
+  static const _base = 'https://apierp.bhc.edu.in';
   static const _referer = 'http://117.232.64.75';
 
   static const _jsonHeaders = {

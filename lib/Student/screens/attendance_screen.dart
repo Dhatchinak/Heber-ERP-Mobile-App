@@ -109,7 +109,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     setState(() => _isLoading = true);
     try {
       final response = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/students/attendance/${widget.rollNo}'),
+        Uri.parse('https://apierp.bhc.edu.in/students/attendance/${widget.rollNo}'),
         headers: {'Referer': 'http://117.232.64.75', 'Accept': 'application/json', 'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) _parseAttendance(jsonDecode(response.body) as Map<String, dynamic>);

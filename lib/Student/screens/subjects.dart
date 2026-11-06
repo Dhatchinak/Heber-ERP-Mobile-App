@@ -39,7 +39,7 @@ class Subject {
 }
 
 class ApiService {
-  static const String baseUrl = '$baseApiUrl/api/students/subjects';
+  static const String baseUrl = '$baseApiUrl/students/subjects';
   
   static Future<List<Subject>> fetchSubjects({
     required String rollNo,
@@ -211,7 +211,7 @@ Future<void> _loadStudentDataAndFetchSubjects() async {
     try {
       final response = await http
           .get(
-            Uri.parse("$baseApiUrl/api/students/$rollNo"),
+            Uri.parse("$baseApiUrl/students/$rollNo"),
             headers: {"Referer": refererUrl},
           )
           .timeout(const Duration(seconds: 10));

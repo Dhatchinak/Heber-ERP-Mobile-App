@@ -219,7 +219,7 @@ class _FeesHistoryScreenState extends State<FeesHistoryScreen>
 
     try {
       final response = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/students/${widget.rollNo}'),
+        Uri.parse('https://apierp.bhc.edu.in/students/${widget.rollNo}'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json',

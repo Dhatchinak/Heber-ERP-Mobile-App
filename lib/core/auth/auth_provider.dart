@@ -193,6 +193,73 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Admin: Staff Master (remote-view / impersonation) ───────────────────────
+  bool _isImpersonating = false;
+  String? _adminSnapshotToken;
+  Map<String, dynamic>? _adminSnapshotUserData;
+
+  bool get isImpersonating => _isImpersonating;
+
+  /// Admin enters a staff ID -> POST /staff/remote-view -> borrow that staff's
+  /// session (token + profile) exactly like the web portal's "Remote View".
+  Future<void> impersonateStaff(String targetStaffId) async {
+    if (_accessToken == null) throw Exception('Admin session expired. Please log in again.');
+
+    final res = await http
+        .post(
+          Uri.parse(ApiConstants.staffRemoteView),
+          headers: ApiConstants.authHeaders(_accessToken!),
+          body: json.encode({'target_staff_id': targetStaffId.trim().toUpperCase()}),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    final body = json.decode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200 || body['success'] != true) {
+      throw Exception(body['message']?.toString() ?? 'Staff not found (${res.statusCode})');
+    }
+
+    final token = body['token']?.toString() ?? '';
+    final staffData = (body['data'] ?? {}) as Map<String, dynamic>;
+    if (token.isEmpty) throw Exception('Server did not return a token.');
+
+    // Snapshot the admin's own session once, so we can return to it later.
+    if (!_isImpersonating) {
+      _adminSnapshotToken = _accessToken;
+      _adminSnapshotUserData = _userData;
+    }
+
+    final type = _detectUserType(staffData, staffData['college_email']?.toString() ?? '');
+    await _persistStaffSession(token: token, userData: staffData, userType: type);
+    _accessToken     = token;
+    _userData        = staffData;
+    _userType        = type;
+    _isImpersonating = true;
+    _isAuthenticated = true;
+    notifyListeners();
+  }
+
+  /// Drop the borrowed staff session and restore the admin's own session.
+  Future<void> endImpersonation() async {
+    if (!_isImpersonating || _adminSnapshotToken == null || _adminSnapshotUserData == null) return;
+
+    final type = _detectUserType(
+      _adminSnapshotUserData!,
+      _adminSnapshotUserData!['college_email']?.toString() ?? '',
+    );
+    await _persistStaffSession(
+      token: _adminSnapshotToken!,
+      userData: _adminSnapshotUserData!,
+      userType: type,
+    );
+    _accessToken     = _adminSnapshotToken;
+    _userData        = _adminSnapshotUserData;
+    _userType        = type;
+    _isImpersonating = false;
+    _adminSnapshotToken = null;
+    _adminSnapshotUserData = null;
+    notifyListeners();
+  }
+
   // ── Logout ────────────────────────────────────────────────────────────────
   Future<void> logout() async {
     await _clearAuthPrefs(); // only removes auth keys, not all prefs

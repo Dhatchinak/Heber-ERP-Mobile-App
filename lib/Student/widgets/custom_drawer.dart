@@ -231,7 +231,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Future<Map<String, dynamic>> _fetchStudentProfile(String rollNo) async {
     try {
       final resp = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/students/$rollNo'),
+        Uri.parse('https://apierp.bhc.edu.in/students/$rollNo'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'
@@ -266,7 +266,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
       final resp = await http
           .post(
-            Uri.parse('https://apierp.bhc.edu.in/api/students/subjects/'),
+            Uri.parse('https://apierp.bhc.edu.in/students/subjects/'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -1105,7 +1105,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final now = DateTime.now();
       final ay = '${now.year}-${now.year + 1}';
       final resp = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/academic_calendar/$ay'),
+        Uri.parse('https://apierp.bhc.edu.in/academic_calendar/$ay'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'
@@ -1123,7 +1123,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Future<Map<String, dynamic>> _fetchAttendanceData(String rollNo) async {
     try {
       final resp = await http.get(
-        Uri.parse('https://apierp.bhc.edu.in/api/students/attendance/$rollNo'),
+        Uri.parse('https://apierp.bhc.edu.in/students/attendance/$rollNo'),
         headers: {
           'Referer': 'http://117.232.64.75',
           'Accept': 'application/json'

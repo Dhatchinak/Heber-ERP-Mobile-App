@@ -310,7 +310,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       final nextYear = currentYear + 1;
       final academicYear = '$currentYear-$nextYear';
       final url = Uri.parse(
-        "$baseApiUrl/api/academic_calendar/$academicYear",
+        "$baseApiUrl/academic_calendar/$academicYear",
       );
       final response = await http.get(
         url,
@@ -486,7 +486,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final url = Uri.parse(
-        "$baseApiUrl/api/students/attendance/${widget.rollNo}",
+        "$baseApiUrl/students/attendance/${widget.rollNo}",
       );
       final response = await http.get(
         url,
@@ -627,7 +627,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       return _cachedProfile!;
     }
     try {
-      final url = Uri.parse("$baseApiUrl/api/students/${widget.rollNo}");
+      final url = Uri.parse("$baseApiUrl/students/${widget.rollNo}");
       final response = await http.get(url, headers: {
         'Referer': refererUrl,
         'Accept': 'application/json'
@@ -727,7 +727,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       }
 
       final year = getAcademicYear(batch);
-      final url = Uri.parse('$baseApiUrl/api/students/subjects/');
+      final url = Uri.parse('$baseApiUrl/students/subjects/');
       final response = await http
           .post(
             url,
@@ -776,7 +776,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   Future<List<ExamResult>> _fetchExamResults() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseApiUrl/api/students/exams/ese/${widget.rollNo}'),
+        Uri.parse('$baseApiUrl/students/exams/ese/${widget.rollNo}'),
         headers: {"Referer": refererUrl, "Accept": "application/json"},
       ).timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) {
@@ -793,7 +793,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   Future<Map<String, dynamic>> _fetchAttendanceData() async {
     try {
       final response = await http.get(
-        Uri.parse("$baseApiUrl/api/students/attendance/${widget.rollNo}"),
+        Uri.parse("$baseApiUrl/students/attendance/${widget.rollNo}"),
         headers: {'Referer': refererUrl, 'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) {
